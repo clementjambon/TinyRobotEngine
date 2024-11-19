@@ -1,6 +1,7 @@
 requests
 tqdm
 torch
-transformers
+transformers==4.37.2
 pillow
 huggingface_hub
+timm==0.9.16
