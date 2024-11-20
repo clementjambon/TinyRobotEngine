@@ -5,7 +5,17 @@ from transformers import AutoModelForVision2Seq, AutoProcessor
 from PIL import Image
 import requests
 
-import torch
+import torch# Import the time library
+import time
+
+# Calculate the start time
+
+
+# Code here
+
+# Calculate the end time and time taken
+
+
 
 device = "mps"
 
@@ -28,4 +38,9 @@ prompt = "In: What action should the robot take to {<INSTRUCTION>}?\nOut:"
 
 # Predict Action (7-DoF; un-normalize for BridgeData V2)
 inputs = processor(prompt, image).to(device, dtype=torch.bfloat16)
+start = time.time()
 action = vla.predict_action(**inputs, unnorm_key="bridge_orig", do_sample=False)
+end = time.time()
+length = end - start
+print("time of prediction:", length)
+print("predicted action:", action)
