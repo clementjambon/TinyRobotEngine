@@ -5,17 +5,8 @@ from transformers import AutoModelForVision2Seq, AutoProcessor
 from PIL import Image
 import requests
 
-import torch# Import the time library
+import torch
 import time
-
-# Calculate the start time
-
-
-# Code here
-
-# Calculate the end time and time taken
-
-
 
 device = "mps"
 
