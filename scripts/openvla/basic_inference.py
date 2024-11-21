@@ -30,7 +30,16 @@ prompt = "In: What action should the robot take to {<INSTRUCTION>}?\nOut:"
 # Predict Action (7-DoF; un-normalize for BridgeData V2)
 inputs = processor(prompt, image).to(device, dtype=torch.bfloat16)
 start = time.time()
-action = vla.predict_action(**inputs, unnorm_key="bridge_orig", do_sample=False)
+with torch.profiler.profile(
+    schedule=torch.profiler.schedule(wait=1, warmup=1, active=2, repeat=2),
+    on_trace_ready=torch.profiler.tensorboard_trace_handler('./log'),
+    record_shapes=True,
+    profile_memory=True,
+    with_stack=True
+) as prof:
+    # Your prediction code here
+    action = vla.predict_action(**inputs, unnorm_key="bridge_orig", do_sample=False)
+#action = vla.predict_action(**inputs, unnorm_key="bridge_orig", do_sample=False)
 end = time.time()
 length = end - start
 print("time of prediction:", length)
