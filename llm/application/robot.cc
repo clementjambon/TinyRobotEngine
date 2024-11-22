@@ -125,6 +125,9 @@ int main(int argc, char* argv[]) {
         generation_config.repeat_penalty = 1.1f;
         generation_config.temp = 0.2f;
         generation_config.n_vocab = 32000;
+        // NB: action dimension!!!!
+        // That's 7 joints in the original implementation
+        generation_config.n_predict = 7;
 
         int prompt_iter = 0;
 
@@ -154,7 +157,7 @@ int main(int argc, char* argv[]) {
                         set_print_reset();
                     }
                     if (input == "quit" || input == "Quit" || input == "Quit." || input == "quit.") break;
-                    std::cout << "ASSISTANT: ";
+                    std::cout << "ASSISTANT: " << std::endl;
                 }
 
                 if (prompt_iter == 0) {
@@ -186,6 +189,7 @@ int main(int argc, char* argv[]) {
                     set_print_reset();
                 }
                 std::string input;
+                std::string input_prefix = "What action should the robot take to ";
                 if (prompt_iter > 0) {
                     if (true) {
                         // Set prompt color
@@ -193,22 +197,23 @@ int main(int argc, char* argv[]) {
                         std::cout << "USER: ";
                         // set user input color
                         set_print_red();
+                        std::cout << input_prefix;
                         std::getline(std::cin, input);
                         // reset color
                         set_print_reset();
                     }
                     if (input == "quit" || input == "Quit" || input == "Quit." || input == "quit.") break;
-                    std::cout << "ASSISTANT: ";
+                    std::cout << "ASSISTANT: " << std::endl;
                 }
 
                 if (prompt_iter == 0) {
                     input = "This is a chat between a user and an assistant.\n\n### USER: ";
                     prompt_iter += 1;
                 } else if (prompt_iter == 1) {
-                    input = "\n" + input + "\n### ASSISTANT:";
+                    input = "\n" + input_prefix + input + "\n### ASSISTANT:";
                     prompt_iter += 1;
                 } else {
-                    input = "### USER: " + input + "\n### ASSISTANT: \n";
+                    input = "### USER: " + input_prefix + input + "\n### ASSISTANT: \n";
                 }
 
                 OpenVLAGenerate(llama_m_path, &llama_model, LLaVA_INT4, input, img_path, generation_config,

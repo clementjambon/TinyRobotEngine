@@ -11,83 +11,36 @@
 #include "utils.h"
 
 #define STB_IMAGE_IMPLEMENTATION
-// #include "stb_image.h"
 
-// struct clip_model_config {
-//     int image_size = 336;
-//     int patch_size = 14;
-//     int num_patches = (image_size / patch_size) * (image_size / patch_size);
-//     int num_positions = num_patches + 1;
-//     int projection_dim = 768;
-//     int mmproj_dim = 4096;
-//     // float image_mean[3] = {0.48145466f, 0.4578275f, 0.40821073f};
-//     // float image_std[3] = {0.26862954f, 0.26130258f, 0.27577711f};
-//     float image_mean[3] = {0.48145466f, 0.48145466f, 0.48145466f};
-//     float image_std[3] = {0.26862954f, 0.26862954f, 0.26862954f};
-// };
-
-// struct llava_image_embed {
-//     float *embed;
-//     int n_image_pos;
-// };
-
-// struct clip_image_u8 {
-//     int nx;
-//     int ny;
-//     uint8_t *data = NULL;
-//     size_t size;
-// };
-
-// struct clip_image_f32 {
-//     int nx;
-//     int ny;
-//     float *data = NULL;
-//     size_t size;
-// };
-
-// clip_image_u8 *make_clip_image_u8() { return new clip_image_u8(); }
-// clip_image_f32 *make_clip_image_f32() { return new clip_image_f32(); }
-// void clip_image_u8_free(clip_image_u8 *img) {
-//     if (img->data) {
-//         delete[] img->data;
-//     }
-//     delete img;
-// }
-// void clip_image_f32_free(clip_image_f32 *img) {
-//     if (img->data) {
-//         delete[] img->data;
-//     }
-//     delete img;
-// }
-
-// static struct llava_image_embed *load_image(std::string image, void *clip_model_ptr, bool is_vila);
-// struct llava_image_embed *llava_image_embed_make_with_filename(clip_model_config *clip_config, void *clip_model_ptr,
-//                                                                const char *image_path, bool is_vila);
-// static bool load_file_to_bytes(const char *path, unsigned char **bytesOut, long *sizeOut);
-// struct llava_image_embed *llava_image_embed_make_with_bytes(clip_model_config *clip_config, void *clip_model_ptr,
-//                                                             const unsigned char *image_bytes, int image_bytes_length,
-//                                                             bool is_vila);
-// bool clip_image_load_from_bytes(const unsigned char *bytes, size_t bytes_length, struct clip_image_u8 *img);
-// static bool llava_image_embed_make_with_clip_img(clip_model_config *clip_config, void *clip_model_ptr,
-//                                                  const clip_image_u8 *img, float **image_embd_out, int
-//                                                  *n_img_pos_out, bool is_vila);
-// static bool encode_image_with_clip(clip_model_config *clip_config, void *clip_model_ptr, const clip_image_u8 *img,
-//                                    float *image_embd, int *n_img_pos, bool is_vila);
-// bool clip_image_preprocess(clip_model_config *clip_config, void *clip_model_ptr, const clip_image_u8 *img,
-//                            clip_image_f32 *res, const bool pad2square);
-
-// // Function to speak in the background
-// static void sayInBackground(const std::string &text) {
-//     std::string command = "./application/sts_utils/speak \"" + text + "\"";
-//     int result = std::system(command.c_str());
-//     (void)result;
-// }
 struct openvla_image_embed {
     float *embed;
     int n_image_pos;
 };
 
 static struct openvla_image_embed *load_image_embed(std::string embed_filename, const int embed_dim);
+
+static float clip(const float value, const float lower, const float upper);
+
+static float token_id_to_action(const int token_id, const int action_idx);
+
+// `bridge_orig` data!
+// TODO: put that in a proper struct loaded with the model
+constexpr float stats_q01[7] = {-0.02872725307941437,
+                                -0.04170349963009357,
+                                -0.026093858778476715,
+                                -0.08092105075716972,
+                                -0.09288699507713317,
+                                -0.20718276381492615,
+                                0.0};
+constexpr float stats_q99[7] = {0.028309678435325586,
+                                0.040855254605412394,
+                                0.040161586627364146,
+                                0.08192047759890528,
+                                0.07792850524187081,
+                                0.20382574498653397,
+                                1.0};
+
+constexpr bool stats_mask[7] = {true, true, true, true, true, true, false};
 
 std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr, int model_type, std::string text,
                             std::string img_path, const struct opt_params generation_config,
@@ -117,6 +70,7 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
         }
     }
 
+    int action_idx = 0;
     bool previous_two_hash = false;
     int break_cnt = 2;
     bool new_prompt = true;
@@ -287,12 +241,21 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
         input_ids = std::vector<int>{id};
 
         if (interactive && !skip) {
-            output += llama_id_to_token(vocab, id);
-            std::cout << llama_id_to_token(vocab, id) << std::flush;
+            // output += llama_id_to_token(vocab, id);
+            // std::cout << llama_id_to_token(vocab, id) << std::flush;
+            float action = token_id_to_action(id, action_idx);
+            std::string action_str = std::to_string(action);
+            output += action_str;
+            std::cout << action_idx << ":" << action_str;
+            if (!stats_mask[action_idx]) {
+                std::cout << " (masked)";
+            }
+            std::cout << std::endl;
         }
 
         new_prompt = false;
         --n_remain;
+        ++action_idx;
     }
 
     if (interactive && !first_prompt) {
@@ -308,6 +271,30 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
     set_print_reset();
 
     return output;
+}
+
+static float clip(const int value, const int lower, const int upper) {
+    if (value < lower) {
+        return lower;
+    } else if (value > upper) {
+        return upper;
+    }
+    return value;
+}
+
+static float token_id_to_action(const int token_id, const int action_idx) {
+    assert(action_idx < 7);
+    assert(token_id < 32000);
+    // TODO: de-hardcode this
+    // Compute normalized actions
+    const int n_action_bins = 256;
+    int discretized_actions = 32000 - token_id;
+    discretized_actions = clip(discretized_actions, 0, n_action_bins - 1);
+    float normalized_actions = 1.0f / n_action_bins + (2.0f * float(discretized_actions) / n_action_bins - 1.0f);
+    // Unnormalize actions
+    float action_low = stats_q01[action_idx];
+    float action_high = stats_q99[action_idx];
+    return 0.5 * (normalized_actions + 1) * (action_high - action_low) + action_low;
 }
 
 /*
