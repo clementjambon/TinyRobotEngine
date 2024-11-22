@@ -30,6 +30,7 @@ test_*
 !test_*.cu
 demo
 chat
+robot
 voicechat
 profile_*
 !profile_*.cc

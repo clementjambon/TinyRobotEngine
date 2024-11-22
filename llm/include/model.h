@@ -32,8 +32,8 @@ struct model_config {
           padding_idx(padding_idx),
           rms_norm_eps(rms_norm_eps) {}
     // GQA/MQA models
-    model_config(int batch, int num_heads, int num_kv_heads, int num_layers, int max_sqlen, int embed_dim, int hidden_dim, int vocsize,
-                 int padding_idx, float rms_norm_eps)
+    model_config(int batch, int num_heads, int num_kv_heads, int num_layers, int max_sqlen, int embed_dim,
+                 int hidden_dim, int vocsize, int padding_idx, float rms_norm_eps)
         : batch(batch),
           num_heads(num_heads),
           num_kv_heads(num_kv_heads),
@@ -46,7 +46,8 @@ struct model_config {
           rms_norm_eps(rms_norm_eps) {}
     // Clip models
     model_config(int batch, int num_heads, int num_layers, int max_sqlen, int embed_dim, int hidden_dim, int vocsize,
-                 int padding_idx, float rms_norm_eps, int image_size, int patch_size, int projection_dim, int mmproj_dim)
+                 int padding_idx, float rms_norm_eps, int image_size, int patch_size, int projection_dim,
+                 int mmproj_dim)
         : batch(batch),
           num_heads(num_heads),
           num_layers(num_layers),
@@ -62,7 +63,26 @@ struct model_config {
           mmproj_dim(mmproj_dim) {}
 };
 
-enum { OPT_125M, OPT_1_3B, OPT_6_7B, LLaMA_7B, LLaMA_13B, CodeLLaMA_7B, CodeLLaMA_13B, StarCoder_15_5B, LLaVA_7B, LLaVA_13B, VILA_2_7B, VILA_7B, VILA_13B, Clip_ViT_Large, Mistral_7B, LLaMA_3_8B, VILA1_5_8B };
+enum {
+    OPT_125M,
+    OPT_1_3B,
+    OPT_6_7B,
+    LLaMA_7B,
+    LLaMA_13B,
+    CodeLLaMA_7B,
+    CodeLLaMA_13B,
+    StarCoder_15_5B,
+    LLaVA_7B,
+    LLaVA_13B,
+    VILA_2_7B,
+    VILA_7B,
+    VILA_13B,
+    Clip_ViT_Large,
+    Mistral_7B,
+    LLaMA_3_8B,
+    VILA1_5_8B,
+    OpenVLA_7B
+};
 enum { FP32, QINT8, INT4 };
 
 const struct model_config opt_6_7B(1, 32, 32, 2048, 4096, 16384, 50272, 1, 0);
@@ -78,9 +98,12 @@ const struct model_config llava_13B(1, 40, 40, 40, 2048, 5120, 13824, 32000, 1, 
 const struct model_config vila_2_7B(1, 20, 20, 32, 2048, 2560, 6912, 32000, 1, 1e-5);
 const struct model_config vila_7B(1, 32, 32, 32, 2048, 4096, 11008, 32000, 1, 1e-5);
 const struct model_config vila_13B(1, 40, 40, 40, 2048, 5120, 13824, 32000, 1, 1e-5);
-const struct model_config clip_vit_large(1, 16, 23, 2048, 1024, 4096, 0, 1, 0, 336, 14, 768, 4096); // llava's and vila's clip model uses only 23 layers out of 24
+const struct model_config clip_vit_large(1, 16, 23, 2048, 1024, 4096, 0, 1, 0, 336, 14, 768,
+                                         4096);  // llava's and vila's clip model uses only 23 layers out of 24
 const struct model_config mistral_7B(1, 32, 8, 32, 2048, 4096, 14336, 32000, 1, 1e-5);
 const struct model_config llama_3_8B(1, 32, 8, 32, 2048, 4096, 14336, 128256, 1, 1e-5);
+// Copied from LLAVA (TODO(clem): check that)
+const struct model_config openvla_7B(1, 32, 32, 32, 2048, 4096, 11008, 32000, 1, 1e-5);
 
 static struct model_config get_opt_model_config(int choise) {
     struct model_config ret;
@@ -135,6 +158,9 @@ static struct model_config get_opt_model_config(int choise) {
             break;
         case VILA1_5_8B:
             ret = vila_7B;
+            break;
+        case OpenVLA_7B:
+            ret = openvla_7B;
             break;
         default:
             throw("Unsupported model choice.");
