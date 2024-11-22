@@ -121,6 +121,8 @@ class Matrix3D {
     T *m_data;
     int m_dim_x, m_dim_y, m_dim_z;
 
+    void print_dims() { std::cout << m_dim_x << "; " << m_dim_y << "; " << m_dim_z << std::endl; }
+
     // Default constructor
     Matrix3D() { m_data = NULL; }
 };
@@ -128,12 +130,12 @@ class Matrix3D {
 template <typename T>
 class Matrix4D {
    public:
-    Matrix4D(T *data, int dim_w, int dim_x, int dim_y, int dim_z) : 
-        m_data(data), m_dim_w(dim_w), m_dim_x(dim_x), m_dim_y(dim_y), m_dim_z(dim_z) {}
+    Matrix4D(T *data, int dim_w, int dim_x, int dim_y, int dim_z)
+        : m_data(data), m_dim_w(dim_w), m_dim_x(dim_x), m_dim_y(dim_y), m_dim_z(dim_z) {}
 
 #if defined(__CUDACC__)
-    __host__ __device__ T &operator()(int w, int x, int y, int z) { 
-        return m_data[w * m_dim_x * m_dim_y * m_dim_z + x * m_dim_y * m_dim_z + y * m_dim_z + z]; 
+    __host__ __device__ T &operator()(int w, int x, int y, int z) {
+        return m_data[w * m_dim_x * m_dim_y * m_dim_z + x * m_dim_y * m_dim_z + y * m_dim_z + z];
     }
 
     __host__ __device__ const T &operator()(int w, int x, int y, int z) const {
@@ -160,7 +162,8 @@ class Matrix4D {
 #endif
 
     bool operator==(const Matrix4D<T> &other) const {
-        if (m_dim_w != other.m_dim_w || m_dim_x != other.m_dim_x || m_dim_y != other.m_dim_y || m_dim_z != other.m_dim_z) {
+        if (m_dim_w != other.m_dim_w || m_dim_x != other.m_dim_x || m_dim_y != other.m_dim_y ||
+            m_dim_z != other.m_dim_z) {
             return false;
         }
 

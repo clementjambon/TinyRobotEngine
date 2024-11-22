@@ -134,9 +134,9 @@ std::string LLaMA3Generate(std::string param_path, void* model, int model_type, 
                            const struct opt_params generation_config, std::string voc_path, bool interactive,
                            bool voicechat);
 
-std::string OpenVLAGenerate(std::string llama_param_path, void* llama_model_ptr, std::string clip_param_path,
-                            void* clip_model_ptr, int model_type, std::string text, std::string img_path,
-                            const struct opt_params generation_config, std::string voc_path, bool interactive,
+std::string OpenVLAGenerate(std::string llama_param_path, void* llama_model_ptr, int model_type, std::string text,
+                            std::string img_path, const struct opt_params generation_config,
+                            const struct model_config model_config, std::string voc_path, bool interactive,
                             bool voicechat, bool is_vila);
 
 #endif  // GENERATE_H

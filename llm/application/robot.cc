@@ -10,7 +10,7 @@ std::map<std::string, int> model_config = {
     {"OpenVLA_7B", OpenVLA_7B},
 };
 
-std::map<std::string, std::string> model_path = {{"OpenVLA_7B", "models/openvla-7b"}};
+std::map<std::string, std::string> model_path = {{"OpenVLA_7B", "models/OpenVLA_7B"}};
 
 std::map<std::string, int> data_format_list = {
     {"FP32", FP32}, {"INT8", QINT8}, {"INT4", INT4}, {"int4", INT4}, {"fp32", FP32},
@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
     std::string target_model = "OpenVLA_7B";
     std::string target_data_format = "INT4";
     bool instruct = true;
-    std::string img_path = "images/monalisa.jpg";
+    std::string img_path = "embeds/OpenVLA_7B/embeds.bin";
     Profiler::getInstance().for_demo = true;
 
     // Set prompt color
@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
     // DEFAULT
     else {
         target_model = "OpenVLA_7B";
-        target_data_format = "INT8";
+        target_data_format = "INT4";
         std::cout << "Using model: " + target_model << std::endl;
         std::cout << "Using data format: " + target_data_format << std::endl;
     }
@@ -132,7 +132,6 @@ int main(int argc, char* argv[]) {
             // Fp32CLIPVisionTransformer clip_model =
             //     Fp32CLIPVisionTransformer(clip_m_path, get_opt_model_config(clip_model_id), false);
             Fp32LlamaForCausalLM llama_model = Fp32LlamaForCausalLM(llama_m_path, get_opt_model_config(llama_model_id));
-
             // Get input from the user
             while (true) {
                 std::string input;
@@ -168,8 +167,8 @@ int main(int argc, char* argv[]) {
                     input = "### USER: " + input + "\n### ASSISTANT: \n";
                 }
 
-                // LLaVAGenerate(llama_m_path, &llama_model, clip_m_path, &clip_model, LLaVA_FP32, input, img_path,
-                //               generation_config, "models/llama_vocab.bin", true, false, false);
+                OpenVLAGenerate(llama_m_path, &llama_model, LLaVA_FP32, input, img_path, generation_config,
+                                get_opt_model_config(llama_model_id), "models/llama_vocab.bin", true, false, false);
             }
         } else if (format_id == INT4) {
             // Fp32CLIPVisionTransformer clip_model =
@@ -212,8 +211,8 @@ int main(int argc, char* argv[]) {
                     input = "### USER: " + input + "\n### ASSISTANT: \n";
                 }
 
-                // LLaVAGenerate(llama_m_path, &llama_model, clip_m_path, &clip_model, LLaVA_INT4, input, img_path,
-                //               generation_config, "models/llama_vocab.bin", true, use_voicechat, false);
+                OpenVLAGenerate(llama_m_path, &llama_model, LLaVA_INT4, input, img_path, generation_config,
+                                get_opt_model_config(llama_model_id), "models/llama_vocab.bin", true, false, false);
             }
         } else {
             std::cout << std::endl;

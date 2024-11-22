@@ -32,7 +32,7 @@ Fp32llamaDecoder::Fp32llamaDecoder(std::string param_path, const struct model_co
     allocate_aligned_memory(inputs_embeds_buf, config.max_sqlen * config.embed_dim * sizeof(float));
     allocate_aligned_memory(first_input_ids_buf, 50 * config.embed_dim * sizeof(float));
     allocate_aligned_memory(image_embed_buf, 576 * config.embed_dim * sizeof(float));
-    allocate_aligned_memory(second_input_ids_buf, (config.max_sqlen-626) * config.embed_dim * sizeof(float));
+    allocate_aligned_memory(second_input_ids_buf, (config.max_sqlen - 626) * config.embed_dim * sizeof(float));
 
     this->voc_size = config.vocsize;
     this->embed_dim = config.embed_dim;
@@ -76,12 +76,12 @@ struct Fp32llamaDecoder_output Fp32llamaDecoder::forward(const struct Fp32llamaD
     }
 
     // Input token -> Embedding
-// #ifdef _WIN32
-//     std::vector<float> inputs_embeds_buf_vec(sqlen * this->embed_dim);
-//     float *inputs_embeds_buf = &inputs_embeds_buf_vec.front();
-// #else
-//     float inputs_embeds_buf[sqlen * this->embed_dim];
-// #endif
+    // #ifdef _WIN32
+    //     std::vector<float> inputs_embeds_buf_vec(sqlen * this->embed_dim);
+    //     float *inputs_embeds_buf = &inputs_embeds_buf_vec.front();
+    // #else
+    //     float inputs_embeds_buf[sqlen * this->embed_dim];
+    // #endif
     Matrix3D<float> inputs_embeds(inputs_embeds_buf, 1, sqlen, this->embed_dim);
 
     if (input.is_llava) {
