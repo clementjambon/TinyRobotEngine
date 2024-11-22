@@ -9,6 +9,7 @@ Example commands:
    python tools/model_quantizer.py --model_path FP32/models/OPT_125m --method QM_ARM --output_path INT4
 
 """
+
 import argparse
 import os
 import shutil
@@ -124,11 +125,24 @@ def _quantize_model(
         layer_num = 24
     elif model_name_size == "OPT_6.7B":
         layer_num = 32
-    elif model_name_size.startswith("LLaMA_3_8B") or model_name_size.startswith("LLaMA_7B") or model_name_size.startswith("CodeLLaMA_7B") or model_name_size.startswith("LLaVA_7B") or model_name_size.startswith("VILA_7B") or model_name_size.startswith("VILA_2.7B"):
+    elif (
+        model_name_size.startswith("LLaMA_3_8B")
+        or model_name_size.startswith("LLaMA_7B")
+        or model_name_size.startswith("CodeLLaMA_7B")
+        or model_name_size.startswith("LLaVA_7B")
+        or model_name_size.startswith("VILA_7B")
+        or model_name_size.startswith("VILA_2.7B")
+        or model_name_size.startswith("OpenVLA_7B")
+    ):
         layer_num = 32
     elif model_name_size.startswith("Mistral_7B"):
         layer_num = 32
-    elif model_name_size.startswith("LLaMA_13B") or model_name_size.startswith("CodeLLaMA_13B") or model_name_size.startswith("LLaVA_13B") or model_name_size.startswith("VILA_13B"):
+    elif (
+        model_name_size.startswith("LLaMA_13B")
+        or model_name_size.startswith("CodeLLaMA_13B")
+        or model_name_size.startswith("LLaVA_13B")
+        or model_name_size.startswith("VILA_13B")
+    ):
         layer_num = 40
     elif model_name_size.startswith("StarCoder"):
         layer_num = 40
@@ -279,14 +293,29 @@ def _quantize_model(
             print(f"Quantization of layer {idx} finished.")
 
     # LLaMA / LLaVA / VILA
-    elif model_name.startswith("LLaMA") or model_name.startswith("CodeLLaMA") or model_name.startswith("LLaVA") \
-         or model_name.startswith("VILA") or model_name.startswith("Mistral"):
-        if model_name.startswith("LLaMA_7B") or model_name.startswith("CodeLLaMA_7B") or model_name.startswith("LLaVA_7B") \
-           or model_name.startswith("VILA_7B"):
+    elif (
+        model_name.startswith("LLaMA")
+        or model_name.startswith("CodeLLaMA")
+        or model_name.startswith("LLaVA")
+        or model_name.startswith("VILA")
+        or model_name.startswith("Mistral")
+        or model_name.startswith("OpenVLA")
+    ):
+        if (
+            model_name.startswith("LLaMA_7B")
+            or model_name.startswith("CodeLLaMA_7B")
+            or model_name.startswith("LLaVA_7B")
+            or model_name.startswith("VILA_7B")
+            or model_name.startswith("OpenVLA_7B")
+        ):
             embed_dim = 4096
             hidden_dim = 11008
-        elif model_name.startswith("LLaMA_13B") or model_name.startswith("CodeLLaMA_13B") or model_name.startswith("LLaVA_13B") \
-             or model_name.startswith("VILA_13B"):
+        elif (
+            model_name.startswith("LLaMA_13B")
+            or model_name.startswith("CodeLLaMA_13B")
+            or model_name.startswith("LLaVA_13B")
+            or model_name.startswith("VILA_13B")
+        ):
             embed_dim = 5120
             hidden_dim = 13824
         elif model_name.startswith("VILA_2.7B"):
@@ -297,17 +326,33 @@ def _quantize_model(
             hidden_dim = 14336
         else:
             raise NotImplementedError(f"{model_name} not supported.")
-        
-        if model_name.startswith("LLaMA_7B") or model_name.startswith("LLaMA_13B") or model_name.startswith("LLaVA_7B") or model_name.startswith("LLaVA_13B") or model_name.startswith("VILA_2.7B") or model_name.startswith("Mistral_7B"):
+
+        if (
+            model_name.startswith("LLaMA_7B")
+            or model_name.startswith("LLaMA_13B")
+            or model_name.startswith("LLaVA_7B")
+            or model_name.startswith("LLaVA_13B")
+            or model_name.startswith("VILA_2.7B")
+            or model_name.startswith("Mistral_7B")
+            or model_name.startswith("OpenVLA_7B")
+        ):
             vocab_size = 32000
-        elif model_name.startswith("VILA_2.7B") or model_name.startswith("VILA_7B") or model_name.startswith("VILA_13B"):
+        elif (
+            model_name.startswith("VILA_2.7B") or model_name.startswith("VILA_7B") or model_name.startswith("VILA_13B")
+        ):
             vocab_size = 32000
         elif model_name.startswith("CodeLLaMA_7B") or model_name.startswith("CodeLLaMA_13B"):
             vocab_size = 32016
         elif model_name.startswith("LLaMA_3_8B"):
             vocab_size = 128256
-        
-        if model_name.startswith("LLaVA_7B") or model_name.startswith("LLaVA_13B") or model_name.startswith("VILA_2.7B") or model_name.startswith("VILA_7B") or model_name.startswith("VILA_13B"):
+
+        if (
+            model_name.startswith("LLaVA_7B")
+            or model_name.startswith("LLaVA_13B")
+            or model_name.startswith("VILA_2.7B")
+            or model_name.startswith("VILA_7B")
+            or model_name.startswith("VILA_13B")
+        ):
             max_seq_len = 4096
         elif model_name.startswith("LLaMA_3_8B"):
             max_seq_len = 8192
@@ -412,14 +457,18 @@ def _quantize_model(
                 if file_size_bytes % bytes_per_element != 0:
                     raise ValueError(f"Invalid file size of {weight_path}. Expected multiple of element number.")
                 array_size = file_size_bytes // bytes_per_element
-                _write_fp16_to_file(os.path.join(output_path, weight_path), weight_path, array_size, 1, max_seq_len, 128)
+                _write_fp16_to_file(
+                    os.path.join(output_path, weight_path), weight_path, array_size, 1, max_seq_len, 128
+                )
                 # sin_cached.bin
                 weight_path = f"{file_path}/sin_cached.bin"
                 file_size_bytes = os.path.getsize(weight_path)
                 if file_size_bytes % bytes_per_element != 0:
                     raise ValueError(f"Invalid file size of {weight_path}. Expected multiple of element number.")
                 array_size = file_size_bytes // bytes_per_element
-                _write_fp16_to_file(os.path.join(output_path, weight_path), weight_path, array_size, 1, max_seq_len, 128)
+                _write_fp16_to_file(
+                    os.path.join(output_path, weight_path), weight_path, array_size, 1, max_seq_len, 128
+                )
                 file_path = f"{prefix}/decoder/layer{idx}/self_attn/qk_bmm"
                 weight_path = f"{file_path}/alpha.bin"
                 file_size_bytes = os.path.getsize(weight_path)
