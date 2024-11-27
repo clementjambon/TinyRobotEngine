@@ -21,6 +21,7 @@ struct model_config {
     // Below is for ViT with registers
     int num_registers;
     bool class_token;
+    bool layer_scale;
 
     model_config() : model_config(1, 32, 32, 2048, 4096, 11008, 32000, 1, 1e-6, 0, 0, 0, 0) {}
     model_config(int batch, int num_heads, int num_layers, int max_sqlen, int embed_dim, int hidden_dim, int vocsize,
@@ -64,11 +65,12 @@ struct model_config {
           patch_size(patch_size),
           projection_dim(projection_dim),
           mmproj_dim(mmproj_dim),
-          class_token(true) {}
+          class_token(true),
+          layer_scale(false) {}
     // ViT with registers
     model_config(int batch, int num_heads, int num_layers, int max_sqlen, int embed_dim, int hidden_dim, int vocsize,
                  int padding_idx, float rms_norm_eps, int image_size, int patch_size, int projection_dim,
-                 int mmproj_dim, int num_registers, bool class_token)
+                 int mmproj_dim, int num_registers, bool class_token, bool layer_scale)
         : batch(batch),
           num_heads(num_heads),
           num_layers(num_layers),
@@ -83,7 +85,8 @@ struct model_config {
           projection_dim(projection_dim),
           mmproj_dim(mmproj_dim),
           num_registers(num_registers),
-          class_token(class_token) {}
+          class_token(class_token),
+          layer_scale(layer_scale) {}
 };
 
 enum {
@@ -104,7 +107,9 @@ enum {
     Mistral_7B,
     LLaMA_3_8B,
     VILA1_5_8B,
-    OpenVLA_7B
+    OpenVLA_7B,
+    DINO_v2,
+    SIGLIP,
 };
 enum { FP32, QINT8, INT4 };
 
@@ -133,9 +138,9 @@ const struct model_config openvla_7B(1, 32, 32, 32, 2048, 4096, 11008, 32000, 1,
 // TODO: no_embed tokens, no pre_norm, don't forget additional bias
 // Hardcodes `get_intermediate_layers` to return the **SECOND-TO-LAST** layer patches!
 const struct model_config vit_large_patch14_reg4_dinov2(1, 16, 10, 2048, 1024, 4096, 0, 1, 0, 518, 14, 1024, 4096, 4,
-                                                        false);
+                                                        false, true);
 const struct model_config vit_so400m_patch14_siglip_224(1, 16, 25, 2048, 1152, 4304, 0, 1, 0, 224, 14, 1024, 4096, 0,
-                                                        false);
+                                                        false, false);
 
 static struct model_config get_opt_model_config(int choise) {
     struct model_config ret;
@@ -193,6 +198,12 @@ static struct model_config get_opt_model_config(int choise) {
             break;
         case OpenVLA_7B:
             ret = openvla_7B;
+            break;
+        case DINO_v2:
+            ret = vit_large_patch14_reg4_dinov2;
+            break;
+        case SIGLIP:
+            ret = vit_so400m_patch14_siglip_224;
             break;
         default:
             throw("Unsupported model choice.");

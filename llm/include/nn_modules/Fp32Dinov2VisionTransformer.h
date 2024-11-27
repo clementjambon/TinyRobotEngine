@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-#include "Fp32CLIPEncoder.h"
+#include "Fp32Dinov2Encoder.h"
 #include "common.h"
 #include "operators.h"
 
@@ -34,13 +34,13 @@ class Fp32Dinov2VisionTransformer {
     Embedding embed_positions;
     Conv2D embed_patch;
     int voc_size, embed_dim, padding_idx, hidden_dim, num_heads, image_size, patch_size, num_patches, projection_dim,
-        mmproj_dim, num_patch_tokens, num_tokens_extended, num_registers;
+        mmproj_dim, num_patch_tokens, num_tokens_extended, num_registers, layer_scale;
     bool class_token;
-    std::vector<Fp32CLIPEncoderLayer> layers;
+    std::vector<Fp32Dinov2EncoderLayer> layers;
     std::string profile_name = "Fp32Dinov2VisionTransformer";
 
    private:
-    Fp32CLIPEncoder encoder;
+    Fp32Dinov2Encoder encoder;
     float* patch_embeds_buf;
     float* class_embeds_buf;
     float* reg_embeds_buf;

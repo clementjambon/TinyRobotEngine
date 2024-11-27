@@ -19,6 +19,7 @@ https://github.com/ggerganov/llama.cpp
 #include <vector>
 
 #include "Fp32CLIPVisionTransformer.h"
+#include "Fp32Dinov2VisionTransformer.h"
 #include "Fp32GPTBigCodeForCausalLM.h"
 #include "Fp32OPTForCausalLM.h"
 #include "Fp32llamaForCausalLM.h"

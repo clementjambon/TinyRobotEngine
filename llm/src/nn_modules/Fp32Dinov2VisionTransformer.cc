@@ -16,6 +16,7 @@ Fp32Dinov2VisionTransformer::Fp32Dinov2VisionTransformer(std::string param_path,
     this->padding_idx = config.padding_idx;
     this->class_token = config.class_token;
     this->num_registers = config.num_registers;
+    this->layer_scale = config.layer_scale;
 
     allocate_aligned_memory(patch_embeds_buf, num_patch_tokens * config.embed_dim * sizeof(float));  // TODO
     allocate_aligned_memory(class_embeds_buf, int(this->class_token) * config.embed_dim * sizeof(float));
@@ -25,12 +26,20 @@ Fp32Dinov2VisionTransformer::Fp32Dinov2VisionTransformer(std::string param_path,
     allocate_aligned_memory(hidden_states_buf, num_tokens_extended * config.embed_dim * sizeof(float));
     allocate_aligned_memory(embeddings_buf, num_tokens_extended * config.embed_dim * sizeof(float));
 
-    this->encoder = Fp32CLIPEncoder(param_path + "/encoder", config);
+    this->encoder = Fp32Dinov2Encoder(param_path + "/encoder", config);
 
     int max_sqlen = config.max_sqlen;
 
     // Class Embedding
-    read_to_array((param_path + "/embeddings/class_embedding/weight.bin").c_str(), class_embeds_buf, config.embed_dim);
+    if (this->class_token) {
+        read_to_array((param_path + "/embeddings/class_embedding/weight.bin").c_str(), class_embeds_buf,
+                      config.embed_dim);
+    }
+    // Register Embedding
+    if (this->num_registers > 0) {
+        read_to_array((param_path + "/embeddings/register_embedding/weight.bin").c_str(), reg_embeds_buf,
+                      this->num_registers * config.embed_dim);
+    }
     // Patch Embedding
     struct Conv2D_params embed_patch;
     float *patch_weight_buf;
@@ -100,13 +109,13 @@ struct Fp32Dinov2VisionTransformer_output Fp32Dinov2VisionTransformer::forward(
     }
 
     // CLIP Encoder
-    struct Fp32CLIPEncoder_output encoder_output;
+    struct Fp32Dinov2Encoder_output encoder_output;
     if (input.has_past_keys_values) {
-        struct Fp32CLIPEncoder_input encoder_input = {embeddings, causal_attention_mask, input.past_keys,
-                                                      input.past_values};
+        struct Fp32Dinov2Encoder_input encoder_input = {embeddings, causal_attention_mask, input.past_keys,
+                                                        input.past_values};
         encoder_output = this->encoder.forward(encoder_input);
     } else {
-        struct Fp32CLIPEncoder_input encoder_input = {embeddings, causal_attention_mask};
+        struct Fp32Dinov2Encoder_input encoder_input = {embeddings, causal_attention_mask};
         encoder_output = this->encoder.forward(encoder_input);
     }
 

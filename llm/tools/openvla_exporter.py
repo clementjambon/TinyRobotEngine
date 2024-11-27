@@ -88,8 +88,8 @@ def _export_featurizer_encoder_block(layer: timm.models.vision_transformer.Block
     os.makedirs(outpath, exist_ok=True)
     _export_featurizer_attention(layer.attn, os.path.join(outpath, "self_attn"))
     _export_LayerNorm(layer.norm1, os.path.join(outpath, "layer_norm1"))
-    _export_linearfp(layer.mlp.fc1, os.path.join(outpath, "mlp_fc1"))
-    _export_linearfp(layer.mlp.fc1, os.path.join(outpath, "mlp_fc2"))
+    _export_featurizer_linearfp(layer.mlp.fc1.weight, layer.mlp.fc1.bias, os.path.join(outpath, "mlp_fc1"))
+    _export_featurizer_linearfp(layer.mlp.fc2.weight, layer.mlp.fc2.bias, os.path.join(outpath, "mlp_fc2"))
     _export_LayerNorm(layer.norm2, os.path.join(outpath, "layer_norm2"))
     if layer_scale:
         _export_layer_scale(layer.ls1, os.path.join(outpath, "ls1"))
