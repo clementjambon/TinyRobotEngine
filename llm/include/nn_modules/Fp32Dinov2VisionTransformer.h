@@ -9,6 +9,7 @@
 struct Fp32Dinov2VisionTransformer_output {
     Matrix3D<float> last_hidden_state;
     std::vector<Matrix3D<float>> past_keys, past_values;
+    Matrix3D<float> embeddings, patch_embeds;
 };
 struct Fp32Dinov2VisionTransformer_input {
     Matrix3D<float> input_image;

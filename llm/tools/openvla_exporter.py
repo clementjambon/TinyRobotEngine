@@ -160,6 +160,9 @@ def _export_featurizer_embeddings(model, prefix, class_embed: bool, reg_embed: b
     with open(os.path.join(f"{outpath}", "weight.bin"), "wb") as f:
         # f.write(embeddings.patch_embedding.weight.cpu().float().numpy().tobytes())
         f.write(model.patch_embed.proj.weight.cpu().float().numpy().transpose(0, 2, 3, 1).tobytes())
+    with open(os.path.join(f"{outpath}", "bias.bin"), "wb") as f:
+        # f.write(embeddings.patch_embedding.weight.cpu().float().numpy().tobytes())
+        f.write(model.patch_embed.proj.bias.cpu().float().numpy().tobytes())
     # position_embedding
     outpath = prefix + "/position_embedding"
     os.makedirs(outpath, exist_ok=True)

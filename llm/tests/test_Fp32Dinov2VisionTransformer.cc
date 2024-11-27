@@ -19,7 +19,7 @@ void test_Fp32Dinov2VisionTransformer() {
     // Load processed image
     int num_pixels = 3 * config.image_size * config.image_size;
     Matrix3D<float> pixel_values(mem_buf.get_fpbuffer(num_pixels), 3, config.image_size, config.image_size);
-    pixel_values.load("assets/openvla/tests/model/pixel_values_featurizer.bin");
+    pixel_values.load("assets/openvla/tests/model/featurizer/pixel_values.bin");
     struct Fp32Dinov2VisionTransformer_input model_input = {pixel_values};
     struct Fp32Dinov2VisionTransformer_output model_output;
     model_output = featurizer_model.forward(model_input);
@@ -27,11 +27,18 @@ void test_Fp32Dinov2VisionTransformer() {
     // Load ground truth features
     int num_patches = config.image_size / config.patch_size;
     int num_image_tokens = num_patches * num_patches;
+
+    Matrix3D<float> patch_embeds(mem_buf.get_fpbuffer(num_image_tokens * config.embed_dim), config.embed_dim,
+                                 num_patches, num_patches);
+    patch_embeds.load("assets/openvla/tests/model/featurizer/patch_embeds.bin");
     Matrix3D<float> output_gt(mem_buf.get_fpbuffer(num_image_tokens * config.embed_dim), 1, num_image_tokens,
                               config.embed_dim);
-    output_gt.load("assets/openvla/tests/model/patch_features_featurizer.bin");
+    output_gt.load("assets/openvla/tests/model/featurizer/patch_features.bin");
 
-    bool success = check_two_equal(output_gt.m_data, model_output.last_hidden_state.m_data, output_gt.length(), 1e-8);
+    patch_embeds.print_dims();
+    model_output.patch_embeds.print_dims();
+
+    bool success = check_two_equal(patch_embeds.m_data, model_output.patch_embeds.m_data, patch_embeds.length(), 1e-8);
 
     if (!success)
         std::cout << "-------- Test of " << __func__ << ": Fail! -------- " << std::endl;

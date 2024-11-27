@@ -121,7 +121,7 @@ class Matrix3D {
     T *m_data;
     int m_dim_x, m_dim_y, m_dim_z;
 
-    void print_dims() { std::cout << m_dim_x << "; " << m_dim_y << "; " << m_dim_z << std::endl; }
+    void print_dims() const { std::cout << m_dim_x << "; " << m_dim_y << "; " << m_dim_z << std::endl; }
 
     // Default constructor
     Matrix3D() { m_data = NULL; }
@@ -226,6 +226,10 @@ class Matrix4D {
 
     // Default constructor
     Matrix4D() { m_data = NULL; }
+
+    void print_dims() const {
+        std::cout << m_dim_w << "; " << m_dim_x << "; " << m_dim_y << "; " << m_dim_z << std::endl;
+    }
 };
 
 static inline void debug_info(std::string s) {

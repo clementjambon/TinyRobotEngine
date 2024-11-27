@@ -6,6 +6,7 @@ Usage:
 Example commandline:
    python tools/clip_exporter.py --model models/clip-vit-large-patch14-336 --output models/CLIP_ViT_Large
 """
+
 import argparse
 import math
 import os
@@ -14,6 +15,7 @@ import struct
 import numpy as np
 import torch
 from transformers import CLIPModel, CLIPProcessor
+
 
 @torch.no_grad()
 def _export_vision_model(model, prefix):
@@ -104,11 +106,12 @@ def _export_processor(processor, prefix):
         # f.write(processor.image_processor.image_mean.numpy().astype(np.float32).tobytes())
         # Convert list to numpy array
         f.write(np.array(processor.image_processor.image_mean).astype(np.float32).tobytes())
-        
+
     with open(os.path.join(f"{outpath}", "image_std.bin"), "wb") as f:
         # f.write(processor.image_processor.image_std.numpy().astype(np.float32).tobytes())
         # Convert list to numpy array
         f.write(np.array(processor.image_processor.image_std).astype(np.float32).tobytes())
+
 
 def main():
     """Export a Clip model to TinyChatEngine format."""
@@ -132,8 +135,14 @@ def main():
         if args.model.endswith(".pt"):
             if args.model.split("/")[-1].lower().startswith("clip"):
                 if args.model.split("-")[1].lower() == "vit" and args.model.split("-")[2].lower() == "large":
-                    print("Loading Clip ViT Large .pt model...");
-                    model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14-336", torch_dtype=torch.float32, low_cpu_mem_usage=True, trust_remote_code=True, offload_state_dict=True)
+                    print("Loading Clip ViT Large .pt model...")
+                    model = CLIPModel.from_pretrained(
+                        "openai/clip-vit-large-patch14-336",
+                        torch_dtype=torch.float32,
+                        low_cpu_mem_usage=True,
+                        trust_remote_code=True,
+                        offload_state_dict=True,
+                    )
                     processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14-336")
                 else:
                     print("Model size not supported.")
@@ -141,11 +150,17 @@ def main():
             else:
                 print("Model type not supported.")
                 return
-            
+
             model.load_state_dict(torch.load(args.model))
         else:
             print("Loading Clip ViT Large model...")
-            model = CLIPModel.from_pretrained(args.model, torch_dtype=torch.float32, low_cpu_mem_usage=True, trust_remote_code=True, offload_state_dict=True)
+            model = CLIPModel.from_pretrained(
+                args.model,
+                torch_dtype=torch.float32,
+                low_cpu_mem_usage=True,
+                trust_remote_code=True,
+                offload_state_dict=True,
+            )
             processor = CLIPProcessor.from_pretrained(args.model)
     else:
         print("Loading Clip ViT Large model from Hugging Face...")

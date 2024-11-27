@@ -43,12 +43,17 @@ Fp32Dinov2VisionTransformer::Fp32Dinov2VisionTransformer(std::string param_path,
     // Patch Embedding
     struct Conv2D_params embed_patch;
     float *patch_weight_buf;
+    float *patch_bias_buf;
     allocate_aligned_memory(patch_weight_buf, 14 * 14 * 3 * config.embed_dim * sizeof(float));
+    allocate_aligned_memory(patch_bias_buf, config.embed_dim * sizeof(float));
     Matrix4D<float> patch_weight(patch_weight_buf, 3, 14, 14, config.embed_dim);  // TODO
+    Matrix3D<float> patch_bias(patch_bias_buf, 1, 1, config.embed_dim);
     embed_patch.weight = patch_weight;
+    embed_patch.bias = patch_bias;
     embed_patch.stride_width = 14;
     embed_patch.stride_height = 14;
     this->embed_patch = Conv2D(embed_patch);
+    this->embed_patch.has_bias = true;
     load_Conv2D(this->embed_patch, param_path + "/embeddings/patch_embedding");
     // Position Embedding
     float *posweight_buf;
@@ -129,7 +134,7 @@ struct Fp32Dinov2VisionTransformer_output Fp32Dinov2VisionTransformer::forward(
            last_hidden_states.length() * sizeof(float));
 
     struct Fp32Dinov2VisionTransformer_output output;
-    output = {last_hidden_states, encoder_output.past_keys, encoder_output.past_values};
+    output = {last_hidden_states, encoder_output.past_keys, encoder_output.past_values, embeddings, patch_embeds};
 
     PROFILE_END(profile_name);
     return output;
