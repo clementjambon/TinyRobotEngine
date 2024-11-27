@@ -123,6 +123,10 @@ class Matrix3D {
 
     void print_dims() const { std::cout << m_dim_x << "; " << m_dim_y << "; " << m_dim_z << std::endl; }
 
+    bool same_dims(const Matrix3D &other) const {
+        return (this->m_dim_x == other.m_dim_x) && (this->m_dim_y == other.m_dim_y) && (this->m_dim_z == other.m_dim_z);
+    }
+
     // Default constructor
     Matrix3D() { m_data = NULL; }
 };

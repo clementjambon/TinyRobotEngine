@@ -29,6 +29,16 @@ struct max_error_info {
     float a1, a2;
 };
 
+bool check_two_equal(Matrix3D<float> mat, Matrix3D<float> mat2, float error) {
+    if (!mat.same_dims(mat2)) {
+        std::cout << "Different dimensions:" << std::endl;
+        mat.print_dims();
+        mat2.print_dims();
+        return false;
+    }
+    return check_two_equal(mat.m_data, mat2.m_data, mat.length(), error);
+}
+
 bool check_two_equal(float* array, float* array2, int size, float error) {
     float sq_diff = 0;
     float max_sqdiff = 0;

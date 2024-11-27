@@ -7,6 +7,7 @@
 #include <fstream>
 #include <typeinfo>
 
+#include "common.h"
 #include "half.hpp"  // Third-party header
 #include "profiler.h"
 
@@ -30,6 +31,8 @@
 
 template <typename T>
 void read_to_array(const char* path, T* array, int size);
+
+bool check_two_equal(Matrix3D<float> mat, Matrix3D<float> mat2, float error);
 
 template <typename T>
 bool check_two_equal(T* array, T* array2, int size);
@@ -63,7 +66,7 @@ void deallocate_memory(void* ptr);
 #include <cuda_runtime.h>
 
 int make_divisible_c(int c, int divisor);
-int calculate_zeros_width(int in_features, int group_size=128, int pack_num=8);
+int calculate_zeros_width(int in_features, int group_size = 128, int pack_num = 8);
 
 #define CHECK_CUDA(call)                                                                             \
     do {                                                                                             \
@@ -92,7 +95,7 @@ __global__ void float2half(float* floatArray, half* halfArray, int N);
 __global__ void half2float(half* halfArray, float* floatArray, int N);
 __global__ void half2float_merge_k_iters(half* halfArray, float* floatArray, int N, int split_k_iters);
 __global__ void merge_k_iters(half* input, half* output, int N, int split_k_iters);
-__global__ void merge_k_iters_qkv(half *input, half *output, int N, int split_k_iters);
+__global__ void merge_k_iters_qkv(half* input, half* output, int N, int split_k_iters);
 #endif
 
 #endif
