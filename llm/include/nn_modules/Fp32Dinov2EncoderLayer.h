@@ -46,6 +46,6 @@ class Fp32Dinov2EncoderLayer {
     Linear_FP mlp_fc1, mlp_fc2;
     float *layer_scale1_buf;
     float *layer_scale2_buf;
-    Fp32CLIPAttention attn;
+    Fp32Dinov2Attention attn;
     std::string profile_name = "Fp32Dinov2EncoderLayer";
 };

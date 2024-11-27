@@ -44,7 +44,7 @@ Fp32Dinov2EncoderLayer::Fp32Dinov2EncoderLayer(std::string param_path, const str
         allocate_aligned_memory(mlp_fc1_arr, config.max_sqlen * config.hidden_dim * sizeof(float));
         allocate_aligned_memory(mlp_fc2_arr, config.max_sqlen * config.embed_dim * sizeof(float));
         allocate_aligned_memory(hidden_states_arr, config.max_sqlen * config.embed_dim * sizeof(float));
-        Fp32CLIPAttention::initialized_memory(config);
+        Fp32Dinov2Attention::initialized_memory(config);
     }
 
     struct LayerNorm_params layer_norm1, layer_norm2;
@@ -74,7 +74,7 @@ Fp32Dinov2EncoderLayer::Fp32Dinov2EncoderLayer(std::string param_path, const str
     this->layer_idx = layer_idx;
     this->layer_scale = config.layer_scale;
 
-    this->attn = Fp32CLIPAttention(param_path + "/self_attn", config);
+    this->attn = Fp32Dinov2Attention(param_path + "/self_attn", config);
 
     float *mlp_fc1_weight, *mlp_fc2_weight;
     allocate_aligned_memory(mlp_fc1_weight, config.embed_dim * config.hidden_dim * sizeof(float));
@@ -108,9 +108,9 @@ struct Fp32Dinov2EncoderLayer_output Fp32Dinov2EncoderLayer::forward(const struc
     this->layer_norm1.forward(input.hidden_states, hidden_states);
 
     // Attention
-    struct Fp32CLIPAttention_input attn_param(hidden_states, input.attention_mask, input.past_key, input.past_value,
-                                              input.has_past_key_value, this->layer_idx);
-    struct Fp32CLIPAttention_output attn_output = this->attn.forward(attn_param);
+    struct Fp32Dinov2Attention_input attn_param(hidden_states, input.attention_mask, input.past_key, input.past_value,
+                                                input.has_past_key_value, this->layer_idx);
+    struct Fp32Dinov2Attention_output attn_output = this->attn.forward(attn_param);
 
     if (this->layer_scale) {
         Matrix3D<float> gamma_scale(layer_scale1_buf, 1, 1, embed_dim);

@@ -176,6 +176,7 @@ int main(int argc, char* argv[]) {
                 llama_m_path + "/vision_backbone/featurizer", get_opt_model_config(model_config["DINO_v2"]));
             Fp32Dinov2VisionTransformer fused_featurizer_model = Fp32Dinov2VisionTransformer(
                 llama_m_path + "/vision_backbone/fused_featurizer", get_opt_model_config(model_config["SIGLIP"]));
+
             llama_m_path = "INT4/" + llama_m_path;
             Int4LlamaForCausalLM llama_model = Int4LlamaForCausalLM(llama_m_path, get_opt_model_config(llama_model_id));
 
