@@ -90,7 +90,7 @@ struct model_config {
 };
 
 struct vit_model_config {
-    int image_size = 518;
+    int image_size = 224;
     int patch_size = 14;
     int num_patches = (image_size / patch_size) * (image_size / patch_size);
     // + registers (= 4 for dino-v2) + class embeding (=0 for dino-v2)
@@ -152,9 +152,9 @@ const struct model_config openvla_7B(1, 32, 32, 32, 2048, 4096, 11008, 32000, 1,
 // NOTE: hidden_dim = 4 * embed_dim, voc_size = 0,
 // TODO: no_embed tokens, no pre_norm, don't forget additional bias
 // Hardcodes `get_intermediate_layers` to return the **SECOND-TO-LAST** layer patches!
-const struct model_config vit_large_patch14_reg4_dinov2(1, 16, 10, 2048, 1024, 4096, 0, 1, 0, 518, 14, 1024, 4096, 4,
+const struct model_config vit_large_patch14_reg4_dinov2(1, 16, 24, 2048, 1024, 4096, 0, 1, 0, 224, 14, 1024, 4096, 4,
                                                         false, true);
-const struct model_config vit_so400m_patch14_siglip_224(1, 16, 25, 2048, 1152, 4304, 0, 1, 0, 224, 14, 1024, 4096, 0,
+const struct model_config vit_so400m_patch14_siglip_224(1, 16, 26, 2048, 1152, 4304, 0, 1, 0, 224, 14, 1024, 4096, 0,
                                                         false, false);
 
 static struct model_config get_opt_model_config(int choise) {

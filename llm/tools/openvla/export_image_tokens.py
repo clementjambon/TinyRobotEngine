@@ -10,7 +10,7 @@ import torch
 import time
 
 device = "mps"
-OUTPATH = "llm/embeds/openvla-7b"
+OUTPATH = "embeds/openvla-7b"
 
 with torch.no_grad():
 
