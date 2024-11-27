@@ -20,3 +20,4 @@ void clip_image_u8_free(clip_image_u8 *img);
 void clip_image_f32_free(clip_image_f32 *img);
 
 bool clip_image_load_from_bytes(const unsigned char *bytes, size_t bytes_length, struct clip_image_u8 *img);
+bool load_file_to_bytes(const char *path, unsigned char **bytesOut, long *sizeOut);

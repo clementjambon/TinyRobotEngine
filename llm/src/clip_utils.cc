@@ -39,3 +39,39 @@ bool clip_image_load_from_bytes(const unsigned char *bytes, size_t bytes_length,
     stbi_image_free(data);
     return true;
 }
+
+bool load_file_to_bytes(const char *path, unsigned char **bytesOut, long *sizeOut) {
+    auto file = fopen(path, "rb");
+    if (file == NULL) {
+        fprintf(stderr, "%s: can't read file %s\n", __func__, path);
+        return false;
+    }
+
+    fseek(file, 0, SEEK_END);
+    auto fileSize = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    auto buffer = (unsigned char *)malloc(fileSize);  // Allocate memory to hold the file data
+    if (buffer == NULL) {
+        fprintf(stderr, "%s: failed to alloc %ld bytes for file %s\n", __func__, fileSize, path);
+        fclose(file);
+        return false;
+    }
+    errno = 0;
+    size_t ret = fread(buffer, 1, fileSize, file);  // Read the file into the buffer
+    if (ferror(file)) {
+        fprintf(stderr, "%s: read error: %s\n", __func__, strerror(errno));
+        fclose(file);
+        return false;
+    }
+    if (ret != (size_t)fileSize) {
+        fprintf(stderr, "%s: unexpectedly reached end of file\n", __func__);
+        fclose(file);
+        return false;
+    }
+    fclose(file);  // Close the file
+
+    *bytesOut = buffer;
+    *sizeOut = fileSize;
+    return true;
+}

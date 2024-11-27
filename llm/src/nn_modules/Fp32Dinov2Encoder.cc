@@ -26,6 +26,7 @@ struct Fp32Dinov2Encoder_output Fp32Dinov2Encoder::forward(const struct Fp32Dino
     Matrix3D<float> hidden_states = input.hidden_states;
     std::vector<Matrix3D<float>> past_keys, past_values;
     for (int i = 0; i < this->layers.size(); i++) {
+        std::cout << "Layers " << i << std::endl;
         if (!input.has_past_keys_values) {
             struct Fp32Dinov2EncoderLayer_input l_i = {hidden_states, input.attention_mask};
             struct Fp32Dinov2EncoderLayer_output l_o = this->layers[i].forward(l_i);

@@ -30,11 +30,9 @@ struct llava_image_embed {
 static struct llava_image_embed *load_image(std::string image, void *clip_model_ptr, bool is_vila);
 struct llava_image_embed *llava_image_embed_make_with_filename(clip_model_config *clip_config, void *clip_model_ptr,
                                                                const char *image_path, bool is_vila);
-static bool load_file_to_bytes(const char *path, unsigned char **bytesOut, long *sizeOut);
 struct llava_image_embed *llava_image_embed_make_with_bytes(clip_model_config *clip_config, void *clip_model_ptr,
                                                             const unsigned char *image_bytes, int image_bytes_length,
                                                             bool is_vila);
-bool clip_image_load_from_bytes(const unsigned char *bytes, size_t bytes_length, struct clip_image_u8 *img);
 static bool llava_image_embed_make_with_clip_img(clip_model_config *clip_config, void *clip_model_ptr,
                                                  const clip_image_u8 *img, float **image_embd_out, int *n_img_pos_out,
                                                  bool is_vila);
@@ -353,42 +351,6 @@ struct llava_image_embed *llava_image_embed_make_with_filename(clip_model_config
     free(image_bytes);
 
     return embed;
-}
-
-static bool load_file_to_bytes(const char *path, unsigned char **bytesOut, long *sizeOut) {
-    auto file = fopen(path, "rb");
-    if (file == NULL) {
-        fprintf(stderr, "%s: can't read file %s\n", __func__, path);
-        return false;
-    }
-
-    fseek(file, 0, SEEK_END);
-    auto fileSize = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    auto buffer = (unsigned char *)malloc(fileSize);  // Allocate memory to hold the file data
-    if (buffer == NULL) {
-        fprintf(stderr, "%s: failed to alloc %ld bytes for file %s\n", __func__, fileSize, path);
-        fclose(file);
-        return false;
-    }
-    errno = 0;
-    size_t ret = fread(buffer, 1, fileSize, file);  // Read the file into the buffer
-    if (ferror(file)) {
-        fprintf(stderr, "%s: read error: %s\n", __func__, strerror(errno));
-        fclose(file);
-        return false;
-    }
-    if (ret != (size_t)fileSize) {
-        fprintf(stderr, "%s: unexpectedly reached end of file\n", __func__);
-        fclose(file);
-        return false;
-    }
-    fclose(file);  // Close the file
-
-    *bytesOut = buffer;
-    *sizeOut = fileSize;
-    return true;
 }
 
 struct llava_image_embed *llava_image_embed_make_with_bytes(clip_model_config *clip_config, void *clip_model_ptr,

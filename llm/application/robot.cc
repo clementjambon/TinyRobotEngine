@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
     std::string target_model = "OpenVLA_7B";
     std::string target_data_format = "INT4";
     bool instruct = true;
-    std::string img_path = "embeds/OpenVLA_7B/embeds.bin";
+    std::string img_path = "data/rd_robot.jpeg";
     Profiler::getInstance().for_demo = true;
 
     // Set prompt color
@@ -168,10 +168,11 @@ int main(int argc, char* argv[]) {
                     input = "### USER: " + input + "\n### ASSISTANT: \n";
                 }
 
-                OpenVLAGenerate(llama_m_path, &llama_model, LLaVA_FP32, input, img_path, generation_config,
-                                get_opt_model_config(llama_model_id), "models/llama_vocab.bin", true, false, false);
+                // OpenVLAGenerate(llama_m_path, &llama_model, LLaVA_FP32, input, img_path, generation_config,
+                //                 get_opt_model_config(llama_model_id), "models/llama_vocab.bin", true, false);
             }
         } else if (format_id == INT4) {
+            const struct vit_model_config featurizer_config = vit_model_config();
             Fp32Dinov2VisionTransformer featurizer_model = Fp32Dinov2VisionTransformer(
                 llama_m_path + "/vision_backbone/featurizer", get_opt_model_config(model_config["DINO_v2"]));
             Fp32Dinov2VisionTransformer fused_featurizer_model = Fp32Dinov2VisionTransformer(
@@ -217,8 +218,9 @@ int main(int argc, char* argv[]) {
                     input = "### USER: " + input_prefix + input + "\n### ASSISTANT: \n";
                 }
 
-                OpenVLAGenerate(llama_m_path, &llama_model, LLaVA_INT4, input, img_path, generation_config,
-                                get_opt_model_config(llama_model_id), "models/llama_vocab.bin", true, false, false);
+                OpenVLAGenerate(llama_m_path, &llama_model, featurizer_config, &featurizer_model, LLaVA_INT4, input,
+                                img_path, generation_config, get_opt_model_config(llama_model_id),
+                                "models/llama_vocab.bin", true, false);
             }
         } else {
             std::cout << std::endl;

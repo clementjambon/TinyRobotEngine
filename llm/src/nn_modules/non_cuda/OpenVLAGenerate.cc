@@ -7,21 +7,43 @@
 #include "Generate.h"
 #include "LLaMATokenizer.h"
 #include "OpenVLAActionDetokenizer.h"
+#include "clip_utils.h"
 #include "common.h"
 #include "interface.h"
 #include "utils.h"
 
+// TODO: that's only for dino for now!
 struct openvla_image_embed {
     float *embed;
     int n_image_pos;
 };
 
+// Image embedding
+// Load pre-computed embeddings
 static struct openvla_image_embed *load_image_embed(std::string embed_filename, const int embed_dim);
 
-std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr, int model_type, std::string text,
-                            std::string img_path, const struct opt_params generation_config,
+// Run inference on vision backbones
+static struct openvla_image_embed *load_image(std::string image, const vit_model_config *vit_config,
+                                              void *vit_model_ptr);
+struct openvla_image_embed *vit_image_embed_make_with_filename(const vit_model_config *vit_config, void *vit_model_ptr,
+                                                               const char *image_path);
+struct openvla_image_embed *vit_image_embed_make_with_bytes(const vit_model_config *vit_config, void *vit_model_ptr,
+                                                            const unsigned char *image_bytes, int image_bytes_length);
+static bool vit_image_embed_make_with_clip_img(const vit_model_config *vit_config, void *clip_model_ptr,
+                                               const clip_image_u8 *img, float **image_embd_out, int *n_img_pos_out);
+static bool encode_image_with_vit(const vit_model_config *vit_config, void *vit_model_ptr, const clip_image_u8 *img,
+                                  float *image_embd, int *n_img_pos);
+bool vit_image_preprocess(const vit_model_config *vit_config, void *vit_model_ptr, const clip_image_u8 *img,
+                          clip_image_f32 *res, const bool pad2square);
+
+// Clip value between a and b
+static float clip(const float value, const float lower, const float upper);
+
+std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
+                            const struct vit_model_config featurizer_config, void *featurizer_model_ptr, int model_type,
+                            std::string text, std::string img_path, const struct opt_params generation_config,
                             const struct model_config model_config, std::string voc_path, bool interactive,
-                            bool voicechat, bool is_vila) {
+                            bool voicechat) {
     std::vector<int> last_n_tokens(generation_config.n_ctx);
     std::fill(last_n_tokens.begin(), last_n_tokens.end(), 0);
     std::vector<int> embd;
@@ -74,11 +96,12 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
                 model_input = {input_ids_mat, past_keys, past_values};
             } else {
                 // Load and preprocess image
-                // auto start = std::chrono::high_resolution_clock::now();
-                auto image_embed = load_image_embed(img_path, model_config.embed_dim);
-                // auto end = std::chrono::high_resolution_clock::now();
-                // std::chrono::duration<double> elapsed = end - start;
-                // std::cout << "Image loading time: " << elapsed.count() << " s\n";
+                auto start = std::chrono::high_resolution_clock::now();
+                // auto image_embed = load_image_embed(img_path, model_config.embed_dim);
+                auto image_embed = load_image(img_path, &featurizer_config, featurizer_model_ptr);
+                auto end = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> elapsed = end - start;
+                std::cout << "Image loading time: " << elapsed.count() << " s\n";
                 // TODO(clem): de-hardcode this!
                 const int n_image_tokens = 256;
                 sqlen = input_ids.size() + n_image_tokens;
@@ -252,11 +275,6 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
     return output;
 }
 
-/*
-The codes below for image preprocessing are adapted from llama.cpp:
-https://github.com/ggerganov/llama.cpp
-*/
-
 // Load precomputed embeddings
 static struct openvla_image_embed *load_image_embed(std::string embed_filename, const int embed_dim) {
     const int n_data = 1;
@@ -272,4 +290,213 @@ static struct openvla_image_embed *load_image_embed(std::string embed_filename, 
     result->embed = embweight.m_data;
     result->n_image_pos = 0;
     return result;
+}
+
+/*
+The codes below for image preprocessing are adapted from llama.cpp:
+https://github.com/ggerganov/llama.cpp
+*/
+static struct openvla_image_embed *load_image(std::string image, const vit_model_config *vit_config,
+                                              void *vit_model_ptr) {
+    // load and preprocess the image
+    openvla_image_embed *embed = NULL;
+    embed = vit_image_embed_make_with_filename(vit_config, vit_model_ptr, image.c_str());
+    if (!embed) {
+        fprintf(stderr, "%s: is %s really an image file?\n", __func__, image.c_str());
+        return NULL;
+    }
+
+    return embed;
+}
+
+struct openvla_image_embed *vit_image_embed_make_with_filename(const vit_model_config *vit_config, void *vit_model_ptr,
+                                                               const char *image_path) {
+    unsigned char *image_bytes;
+    long image_bytes_length;
+    auto loaded = load_file_to_bytes(image_path, &image_bytes, &image_bytes_length);
+    if (!loaded) {
+        fprintf(stderr, "%s: failed to load %s\n", __func__, image_path);
+        return NULL;
+    }
+
+    auto embed = vit_image_embed_make_with_bytes(vit_config, vit_model_ptr, image_bytes, image_bytes_length);
+    free(image_bytes);
+
+    return embed;
+}
+
+struct openvla_image_embed *vit_image_embed_make_with_bytes(const vit_model_config *vit_config, void *vit_model_ptr,
+                                                            const unsigned char *image_bytes, int image_bytes_length) {
+    clip_image_u8 *img = make_clip_image_u8();
+    if (!clip_image_load_from_bytes(image_bytes, image_bytes_length, img)) {
+        clip_image_u8_free(img);
+        fprintf(stderr, "%s: can't load image from bytes, is it a valid image?", __func__);
+        return NULL;
+    }
+
+    float *image_embed = NULL;
+    int n_image_pos = 0;
+    bool image_embed_result =
+        vit_image_embed_make_with_clip_img(vit_config, vit_model_ptr, img, &image_embed, &n_image_pos);
+    if (!image_embed_result) {
+        clip_image_u8_free(img);
+        fprintf(stderr, "%s: coulnd't embed the image\n", __func__);
+        return NULL;
+    }
+
+    clip_image_u8_free(img);
+    auto result = (openvla_image_embed *)malloc(sizeof(openvla_image_embed));
+    result->embed = image_embed;
+    result->n_image_pos = n_image_pos;
+    return result;
+}
+
+size_t vit_embd_nbytes(const vit_model_config *vit_config) {
+    return vit_config->num_patches * vit_config->projection_dim * sizeof(float);
+}
+
+static bool vit_image_embed_make_with_clip_img(const vit_model_config *vit_config, void *vit_model_ptr,
+                                               const clip_image_u8 *img, float **image_embd_out, int *n_img_pos_out) {
+    float *image_embd = (float *)malloc(vit_embd_nbytes(vit_config));
+    if (!image_embd) {
+        fprintf(stderr, "Unable to allocate memory for image embeddings\n");
+        free(image_embd);
+        return false;
+    }
+
+    int n_img_pos;
+    if (!encode_image_with_vit(vit_config, vit_model_ptr, img, image_embd, &n_img_pos)) {
+        fprintf(stderr, "%s: cannot encode image, aborting\n", __func__);
+        free(image_embd);
+        return false;
+    }
+    *image_embd_out = image_embd;
+    *n_img_pos_out = n_img_pos;
+
+    return true;
+}
+
+static bool encode_image_with_vit(const vit_model_config *vit_config, void *vit_model_ptr, const clip_image_u8 *img,
+                                  float *image_embd, int *n_img_pos) {
+    clip_image_f32 *img_res = make_clip_image_f32();
+    if (!vit_image_preprocess(vit_config, vit_model_ptr, img, img_res, /*pad2square =*/true)) {
+        fprintf(stderr, "%s: unable to preprocess image\n", __func__);
+        clip_image_f32_free(img_res);
+        return false;
+    }
+
+    Fp32Dinov2VisionTransformer *vit_model = static_cast<Fp32Dinov2VisionTransformer *>(vit_model_ptr);
+    struct Fp32Dinov2VisionTransformer_input model_input;
+    struct Fp32Dinov2VisionTransformer_output model_output;
+    Matrix3D<float> input_image(img_res->data, 3, img_res->nx, img_res->ny);
+    model_input = {input_image};
+    model_output = vit_model->forward(model_input);
+    memcpy(image_embd, model_output.last_hidden_state.m_data, vit_embd_nbytes(vit_config));
+
+    clip_image_f32_free(img_res);
+
+    return true;
+}
+
+// normalize: x = (x - mean) / std
+// TODO: implement bicubic interpolation instead of linear.
+bool vit_image_preprocess(const vit_model_config *vit_config, void *vit_model_ptr, const clip_image_u8 *img,
+                          clip_image_f32 *res, const bool pad2square) {
+    // the logic below is to pad the shorter side to the longer side with a background color: rgb(122, 116, 104)
+    // see
+    // https://github.com/haotian-liu/LLaVA/blob/e854a2bf85118c504f6f16bf5c3c7c92f8fa8c6b/llava/conversation.py#L113-L156
+
+    clip_image_u8 *temp = make_clip_image_u8();  // we will keep the input image data here temporarily
+    if (pad2square && img->nx != img->ny) {
+        int longer_side = std::max(img->nx, img->ny);
+        temp->nx = longer_side;
+        temp->ny = longer_side;
+        temp->size = 3 * longer_side * longer_side;
+        temp->data = new uint8_t[temp->size]();
+        uint8_t bc[3] = {122, 116, 104};  // bakground color in RGB from LLaVA
+
+        // fill with background color
+        for (size_t i = 0; i < temp->size; i++) {
+            temp->data[i] = bc[i % 3];
+        }
+
+        // copy from the input image
+        for (int y = 0; y < img->ny; y++) {
+            for (int x = 0; x < img->nx; x++) {
+                const int i = 3 * (y * img->nx + x);
+                const int j = 3 * (y * temp->nx + x);
+                temp->data[j] = img->data[i];
+                temp->data[j + 1] = img->data[i + 1];
+                temp->data[j + 2] = img->data[i + 2];
+            }
+        }
+    } else {
+        temp->nx = img->nx;
+        temp->ny = img->ny;
+        temp->size = img->size;
+        temp->data = new uint8_t[temp->size]();
+        memcpy(&temp->data[0], &img->data[0], temp->size);  // copy
+    }
+
+    const int nx = temp->nx;
+    const int ny = temp->ny;
+
+    const int nx2 = vit_config->image_size;
+    const int ny2 = vit_config->image_size;
+
+    res->nx = nx2;
+    res->ny = ny2;
+    res->size = 3 * nx2 * ny2;
+    res->data = new float[res->size]();
+
+    const float scale = std::max(nx, ny) / (float)vit_config->image_size;
+
+    const int nx3 = int(nx / scale + 0.5f);
+    const int ny3 = int(ny / scale + 0.5f);
+
+    const auto &m3 = vit_config->image_mean;  // {0.48145466f, 0.4578275f, 0.40821073f};
+    const auto &s3 = vit_config->image_std;   // {0.26862954f, 0.26130258f, 0.27577711f};
+
+    for (int y = 0; y < ny3; y++) {
+        for (int x = 0; x < nx3; x++) {
+            for (int c = 0; c < 3; c++) {
+                // linear interpolation
+                const float sx = (x + 0.5f) * scale - 0.5f;
+                const float sy = (y + 0.5f) * scale - 0.5f;
+
+                const int x0 = std::max(0, (int)std::floor(sx));
+                const int y0 = std::max(0, (int)std::floor(sy));
+
+                const int x1 = std::min(x0 + 1, nx - 1);
+                const int y1 = std::min(y0 + 1, ny - 1);
+
+                const float dx = sx - x0;
+                const float dy = sy - y0;
+
+                const int j00 = 3 * (y0 * nx + x0) + c;
+                const int j01 = 3 * (y0 * nx + x1) + c;
+                const int j10 = 3 * (y1 * nx + x0) + c;
+                const int j11 = 3 * (y1 * nx + x1) + c;
+
+                const float v00 = temp->data[j00];
+                const float v01 = temp->data[j01];
+                const float v10 = temp->data[j10];
+                const float v11 = temp->data[j11];
+
+                const float v0 = v00 * (1.0f - dx) + v01 * dx;
+                const float v1 = v10 * (1.0f - dx) + v11 * dx;
+
+                const float v = v0 * (1.0f - dy) + v1 * dy;
+
+                const uint8_t v2 = std::min(std::max(std::round(v), 0.0f), 255.0f);
+
+                const int i = 3 * (y * nx3 + x) + c;
+
+                res->data[i] = ((float(v2) / 255.0f) - m3[c]) / s3[c];
+            }
+        }
+    }
+    clip_image_u8_free(temp);
+
+    return true;
 }

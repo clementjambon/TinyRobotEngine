@@ -89,6 +89,21 @@ struct model_config {
           layer_scale(layer_scale) {}
 };
 
+struct vit_model_config {
+    int image_size = 518;
+    int patch_size = 14;
+    int num_patches = (image_size / patch_size) * (image_size / patch_size);
+    // + registers (= 4 for dino-v2) + class embeding (=0 for dino-v2)
+    int num_positions = num_patches + 4;
+    int projection_dim = 1024;
+    // int mmproj_dim = 4096;
+    // float image_mean[3] = {0.48145466f, 0.4578275f, 0.40821073f};
+    // float image_std[3] = {0.26862954f, 0.26130258f, 0.27577711f};
+    // IMAGENET_STATS
+    float image_mean[3] = {0.485f, 0.456f, 0.406f};
+    float image_std[3] = {0.229f, 0.224f, 0.225f};
+};
+
 enum {
     OPT_125M,
     OPT_1_3B,

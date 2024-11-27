@@ -108,6 +108,8 @@ struct Fp32Dinov2VisionTransformer_output Fp32Dinov2VisionTransformer::forward(
         embeddings.m_data[i] = embeddings.m_data[i] + pos_embeds.m_data[i];
     }
 
+    std::cout << "Managed to embed!" << std::endl;
+
     // CLIP Encoder
     struct Fp32Dinov2Encoder_output encoder_output;
     if (input.has_past_keys_values) {

@@ -18,10 +18,12 @@ void scale(Matrix3D<T> a, Matrix3D<T> gamma) {
     PROFILE_START("Fp32Dinov2EncoderLayer::scale");
     assert(a.m_dim_z == gamma.m_dim_z);
 
+    std::cout << a.m_dim_z << "; " << gamma.m_dim_x << gamma.m_dim_y << gamma.m_dim_z << std::endl;
+
     for (int x = 0; x < a.m_dim_x; ++x) {
         for (int y = 0; y < a.m_dim_y; ++y) {
             for (int z = 0; z < a.m_dim_z; ++z) {
-                a(x, y, z) *= gamma(1, 1, z);
+                a(x, y, z) *= gamma(0, 0, z);
             }
         }
     }
