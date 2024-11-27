@@ -18,6 +18,9 @@ struct model_config {
     int patch_size;
     int projection_dim;
     int mmproj_dim;
+    // Below is for ViT with registers
+    int num_registers;
+    bool class_token;
 
     model_config() : model_config(1, 32, 32, 2048, 4096, 11008, 32000, 1, 1e-6, 0, 0, 0, 0) {}
     model_config(int batch, int num_heads, int num_layers, int max_sqlen, int embed_dim, int hidden_dim, int vocsize,
@@ -60,7 +63,27 @@ struct model_config {
           image_size(image_size),
           patch_size(patch_size),
           projection_dim(projection_dim),
-          mmproj_dim(mmproj_dim) {}
+          mmproj_dim(mmproj_dim),
+          class_token(true) {}
+    // ViT with registers
+    model_config(int batch, int num_heads, int num_layers, int max_sqlen, int embed_dim, int hidden_dim, int vocsize,
+                 int padding_idx, float rms_norm_eps, int image_size, int patch_size, int projection_dim,
+                 int mmproj_dim, int num_registers, bool class_token)
+        : batch(batch),
+          num_heads(num_heads),
+          num_layers(num_layers),
+          max_sqlen(max_sqlen),
+          embed_dim(embed_dim),
+          hidden_dim(hidden_dim),
+          vocsize(vocsize),
+          padding_idx(padding_idx),
+          rms_norm_eps(rms_norm_eps),
+          image_size(image_size),
+          patch_size(patch_size),
+          projection_dim(projection_dim),
+          mmproj_dim(mmproj_dim),
+          num_registers(num_registers),
+          class_token(class_token) {}
 };
 
 enum {
@@ -104,6 +127,15 @@ const struct model_config mistral_7B(1, 32, 8, 32, 2048, 4096, 14336, 32000, 1, 
 const struct model_config llama_3_8B(1, 32, 8, 32, 2048, 4096, 14336, 128256, 1, 1e-5);
 // Copied from LLAVA (TODO(clem): check that)
 const struct model_config openvla_7B(1, 32, 32, 32, 2048, 4096, 11008, 32000, 1, 1e-5);
+// Vision towers following
+// https://github.com/huggingface/pytorch-image-models/blob/main/timm/models/vision_transformer.py
+// NOTE: hidden_dim = 4 * embed_dim, voc_size = 0,
+// TODO: no_embed tokens, no pre_norm, don't forget additional bias
+// Hardcodes `get_intermediate_layers` to return the **SECOND-TO-LAST** layer patches!
+const struct model_config vit_large_patch14_reg4_dinov2(1, 16, 10, 2048, 1024, 4096, 0, 1, 0, 518, 14, 1024, 4096, 4,
+                                                        false);
+const struct model_config vit_so400m_patch14_siglip_224(1, 16, 25, 2048, 1152, 4304, 0, 1, 0, 224, 14, 1024, 4096, 0,
+                                                        false);
 
 static struct model_config get_opt_model_config(int choise) {
     struct model_config ret;
