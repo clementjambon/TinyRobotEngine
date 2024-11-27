@@ -1,16 +1,13 @@
-#include <thread>
-#include <string>
 #include <sstream>
+#include <string>
+#include <thread>
 
 #include "Generate.h"
 #include "LLaMATokenizer.h"
+#include "clip_utils.h"
 #include "common.h"
-#include "utils.h"
 #include "interface.h"
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
+#include "utils.h"
 
 struct clip_model_config {
     int image_size = 336;
@@ -30,44 +27,32 @@ struct llava_image_embed {
     int n_image_pos;
 };
 
-struct clip_image_u8 {
-    int nx;
-    int ny;
-    uint8_t *data = NULL;
-    size_t size;
-};
-
-struct clip_image_f32 {
-    int nx;
-    int ny;
-    float *data = NULL;
-    size_t size;
-};
-
-clip_image_u8*  make_clip_image_u8()  { return new clip_image_u8();  }
-clip_image_f32* make_clip_image_f32() { return new clip_image_f32(); }
-void clip_image_u8_free(clip_image_u8 * img)   { if (img->data) { delete[] img->data; } delete img; }
-void clip_image_f32_free(clip_image_f32 * img) { if (img->data) { delete[] img->data; } delete img; }
-
-static struct llava_image_embed* load_image(std::string image, void *clip_model_ptr, bool is_vila);
-struct llava_image_embed* llava_image_embed_make_with_filename(clip_model_config *clip_config, void *clip_model_ptr, const char *image_path, bool is_vila);
-static bool load_file_to_bytes(const char* path, unsigned char** bytesOut, long *sizeOut);
-struct llava_image_embed* llava_image_embed_make_with_bytes(clip_model_config *clip_config, void *clip_model_ptr, const unsigned char *image_bytes, int image_bytes_length, bool is_vila);
+static struct llava_image_embed *load_image(std::string image, void *clip_model_ptr, bool is_vila);
+struct llava_image_embed *llava_image_embed_make_with_filename(clip_model_config *clip_config, void *clip_model_ptr,
+                                                               const char *image_path, bool is_vila);
+static bool load_file_to_bytes(const char *path, unsigned char **bytesOut, long *sizeOut);
+struct llava_image_embed *llava_image_embed_make_with_bytes(clip_model_config *clip_config, void *clip_model_ptr,
+                                                            const unsigned char *image_bytes, int image_bytes_length,
+                                                            bool is_vila);
 bool clip_image_load_from_bytes(const unsigned char *bytes, size_t bytes_length, struct clip_image_u8 *img);
-static bool llava_image_embed_make_with_clip_img(clip_model_config *clip_config, void *clip_model_ptr, const clip_image_u8 *img, float **image_embd_out, int *n_img_pos_out, bool is_vila);
-static bool encode_image_with_clip(clip_model_config *clip_config, void *clip_model_ptr, const clip_image_u8 *img, float *image_embd, int *n_img_pos, bool is_vila);
-bool clip_image_preprocess(clip_model_config *clip_config, void *clip_model_ptr, const clip_image_u8 *img, clip_image_f32 *res, const bool pad2square);
-
+static bool llava_image_embed_make_with_clip_img(clip_model_config *clip_config, void *clip_model_ptr,
+                                                 const clip_image_u8 *img, float **image_embd_out, int *n_img_pos_out,
+                                                 bool is_vila);
+static bool encode_image_with_clip(clip_model_config *clip_config, void *clip_model_ptr, const clip_image_u8 *img,
+                                   float *image_embd, int *n_img_pos, bool is_vila);
+bool clip_image_preprocess(clip_model_config *clip_config, void *clip_model_ptr, const clip_image_u8 *img,
+                           clip_image_f32 *res, const bool pad2square);
 
 // Function to speak in the background
-static void sayInBackground(const std::string& text) {
+static void sayInBackground(const std::string &text) {
     std::string command = "./application/sts_utils/speak \"" + text + "\"";
     int result = std::system(command.c_str());
     (void)result;
 }
 
-std::string LLaVAGenerate(std::string llama_param_path, void* llama_model_ptr, std::string clip_param_path, void* clip_model_ptr, int model_type, 
-                          std::string text, std::string img_path, const struct opt_params generation_config, std::string voc_path, bool interactive, 
+std::string LLaVAGenerate(std::string llama_param_path, void *llama_model_ptr, std::string clip_param_path,
+                          void *clip_model_ptr, int model_type, std::string text, std::string img_path,
+                          const struct opt_params generation_config, std::string voc_path, bool interactive,
                           bool voicechat, bool is_vila) {
     std::vector<int> last_n_tokens(generation_config.n_ctx);
     std::fill(last_n_tokens.begin(), last_n_tokens.end(), 0);
@@ -282,46 +267,42 @@ std::string LLaVAGenerate(std::string llama_param_path, void* llama_model_ptr, s
                 size_t lastPos;
                 // starts ealier but slows down dictation
                 bool ended = false;
-                if (output.find(", ") != std::string::npos){
+                if (output.find(", ") != std::string::npos) {
                     lastPos = output.rfind(',');
                     ended = true;
                 }
-                if (output.find("\n") != std::string::npos){
+                if (output.find("\n") != std::string::npos) {
                     lastPos = output.rfind('\n');
                     ended = true;
-                }
-                else if (output.find(". ") != std::string::npos){
+                } else if (output.find(". ") != std::string::npos) {
                     lastPos = output.rfind('.');
                     ended = true;
-                }
-                else if (output.find("! ") != std::string::npos){
+                } else if (output.find("! ") != std::string::npos) {
                     lastPos = output.rfind('!');
                     ended = true;
-                }
-                else if (output.find("? ") != std::string::npos){
+                } else if (output.find("? ") != std::string::npos) {
                     lastPos = output.rfind('?');
                     ended = true;
-    
-                }
-                else if (output.find(": ") != std::string::npos){
+
+                } else if (output.find(": ") != std::string::npos) {
                     lastPos = output.rfind(':');
                     ended = true;
                 }
-                if (ended){
+                if (ended) {
                     // Extract sentence 1 (up to and including the last period)
                     std::string output_copy = output.substr(0, lastPos + 1);
                     // Extract beginning of sentence 2 (excluding the space after the last period)
-                    output = output.substr(lastPos + 1); // Skip the last period and space
+                    output = output.substr(lastPos + 1);  // Skip the last period and space
                     std::thread sayThread(sayInBackground, output_copy);
-                    sayThread.detach(); 
-                } 
-            } 
+                    sayThread.detach();
+                }
+            }
         }
 
         new_prompt = false;
         --n_remain;
     }
-    if (voicechat && interactive){
+    if (voicechat && interactive) {
         sayInBackground(output);
     }
 
@@ -340,12 +321,11 @@ std::string LLaVAGenerate(std::string llama_param_path, void* llama_model_ptr, s
     return output;
 }
 
-
 /*
 The codes below for image preprocessing are adapted from llama.cpp:
 https://github.com/ggerganov/llama.cpp
 */
-static struct llava_image_embed* load_image(std::string image, void *clip_model_ptr, bool is_vila) {
+static struct llava_image_embed *load_image(std::string image, void *clip_model_ptr, bool is_vila) {
     // load and preprocess the image
     llava_image_embed *embed = NULL;
     clip_model_config *clip_config = new clip_model_config();
@@ -358,7 +338,8 @@ static struct llava_image_embed* load_image(std::string image, void *clip_model_
     return embed;
 }
 
-struct llava_image_embed * llava_image_embed_make_with_filename(clip_model_config *clip_config, void *clip_model_ptr, const char *image_path, bool is_vila) {
+struct llava_image_embed *llava_image_embed_make_with_filename(clip_model_config *clip_config, void *clip_model_ptr,
+                                                               const char *image_path, bool is_vila) {
     unsigned char *image_bytes;
     long image_bytes_length;
     auto loaded = load_file_to_bytes(image_path, &image_bytes, &image_bytes_length);
@@ -367,13 +348,14 @@ struct llava_image_embed * llava_image_embed_make_with_filename(clip_model_confi
         return NULL;
     }
 
-    auto embed = llava_image_embed_make_with_bytes(clip_config, clip_model_ptr, image_bytes, image_bytes_length, is_vila);
+    auto embed =
+        llava_image_embed_make_with_bytes(clip_config, clip_model_ptr, image_bytes, image_bytes_length, is_vila);
     free(image_bytes);
 
     return embed;
 }
 
-static bool load_file_to_bytes(const char* path, unsigned char** bytesOut, long *sizeOut) {
+static bool load_file_to_bytes(const char *path, unsigned char **bytesOut, long *sizeOut) {
     auto file = fopen(path, "rb");
     if (file == NULL) {
         fprintf(stderr, "%s: can't read file %s\n", __func__, path);
@@ -384,42 +366,45 @@ static bool load_file_to_bytes(const char* path, unsigned char** bytesOut, long 
     auto fileSize = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    auto buffer = (unsigned char *)malloc(fileSize); // Allocate memory to hold the file data
+    auto buffer = (unsigned char *)malloc(fileSize);  // Allocate memory to hold the file data
     if (buffer == NULL) {
         fprintf(stderr, "%s: failed to alloc %ld bytes for file %s\n", __func__, fileSize, path);
         fclose(file);
         return false;
     }
     errno = 0;
-    size_t ret = fread(buffer, 1, fileSize, file); // Read the file into the buffer
+    size_t ret = fread(buffer, 1, fileSize, file);  // Read the file into the buffer
     if (ferror(file)) {
         fprintf(stderr, "%s: read error: %s\n", __func__, strerror(errno));
         fclose(file);
         return false;
     }
-    if (ret != (size_t) fileSize) {
+    if (ret != (size_t)fileSize) {
         fprintf(stderr, "%s: unexpectedly reached end of file\n", __func__);
         fclose(file);
         return false;
     }
-    fclose(file); // Close the file
+    fclose(file);  // Close the file
 
     *bytesOut = buffer;
     *sizeOut = fileSize;
     return true;
 }
 
-struct llava_image_embed* llava_image_embed_make_with_bytes(clip_model_config *clip_config, void *clip_model_ptr, const unsigned char *image_bytes, int image_bytes_length, bool is_vila) {
+struct llava_image_embed *llava_image_embed_make_with_bytes(clip_model_config *clip_config, void *clip_model_ptr,
+                                                            const unsigned char *image_bytes, int image_bytes_length,
+                                                            bool is_vila) {
     clip_image_u8 *img = make_clip_image_u8();
-    if (!clip_image_load_from_bytes(image_bytes, image_bytes_length, img)) {
+    if (!clip_image_load_from_bytes((const unsigned char *)image_bytes, image_bytes_length, img)) {
         clip_image_u8_free(img);
         fprintf(stderr, "%s: can't load image from bytes, is it a valid image?", __func__);
         return NULL;
     }
 
-    float* image_embed = NULL;
+    float *image_embed = NULL;
     int n_image_pos = 0;
-    bool image_embed_result = llava_image_embed_make_with_clip_img(clip_config, clip_model_ptr, img, &image_embed, &n_image_pos, is_vila);
+    bool image_embed_result =
+        llava_image_embed_make_with_clip_img(clip_config, clip_model_ptr, img, &image_embed, &n_image_pos, is_vila);
     if (!image_embed_result) {
         clip_image_u8_free(img);
         fprintf(stderr, "%s: coulnd't embed the image\n", __func__);
@@ -427,37 +412,19 @@ struct llava_image_embed* llava_image_embed_make_with_bytes(clip_model_config *c
     }
 
     clip_image_u8_free(img);
-    auto result = (llava_image_embed*)malloc(sizeof(llava_image_embed));
+    auto result = (llava_image_embed *)malloc(sizeof(llava_image_embed));
     result->embed = image_embed;
     result->n_image_pos = n_image_pos;
     return result;
-}
-
-static void build_clip_img_from_data(const stbi_uc *data, int nx, int ny, clip_image_u8 *img) {
-    img->nx = nx;
-    img->ny = ny;
-    img->size = nx * ny * 3;
-    img->data = new uint8_t[img->size]();
-    memcpy(img->data, data, img->size);
-}
-
-bool clip_image_load_from_bytes(const unsigned char *bytes, size_t bytes_length, struct clip_image_u8 *img) {
-    int nx, ny, nc;
-    auto data = stbi_load_from_memory(bytes, bytes_length, &nx, &ny, &nc, 3);
-    if (!data) {
-        fprintf(stderr, "%s: failed to decode image bytes\n", __func__);
-        return false;
-    }
-    build_clip_img_from_data(data, nx, ny, img);
-    stbi_image_free(data);
-    return true;
 }
 
 size_t clip_embd_nbytes(clip_model_config *clip_config) {
     return clip_config->num_patches * clip_config->mmproj_dim * sizeof(float);
 }
 
-static bool llava_image_embed_make_with_clip_img(clip_model_config *clip_config, void *clip_model_ptr, const clip_image_u8 *img, float **image_embd_out, int *n_img_pos_out, bool is_vila) {
+static bool llava_image_embed_make_with_clip_img(clip_model_config *clip_config, void *clip_model_ptr,
+                                                 const clip_image_u8 *img, float **image_embd_out, int *n_img_pos_out,
+                                                 bool is_vila) {
     float *image_embd = (float *)malloc(clip_embd_nbytes(clip_config));
     if (!image_embd) {
         fprintf(stderr, "Unable to allocate memory for image embeddings\n");
@@ -477,9 +444,10 @@ static bool llava_image_embed_make_with_clip_img(clip_model_config *clip_config,
     return true;
 }
 
-static bool encode_image_with_clip(clip_model_config *clip_config, void *clip_model_ptr, const clip_image_u8 *img, float *image_embd, int *n_img_pos, bool is_vila) {
+static bool encode_image_with_clip(clip_model_config *clip_config, void *clip_model_ptr, const clip_image_u8 *img,
+                                   float *image_embd, int *n_img_pos, bool is_vila) {
     clip_image_f32 *img_res = make_clip_image_f32();
-    if (!clip_image_preprocess(clip_config, clip_model_ptr, img, img_res, /*pad2square =*/ true)) {
+    if (!clip_image_preprocess(clip_config, clip_model_ptr, img, img_res, /*pad2square =*/true)) {
         fprintf(stderr, "%s: unable to preprocess image\n", __func__);
         clip_image_f32_free(img_res);
         return false;
@@ -500,18 +468,20 @@ static bool encode_image_with_clip(clip_model_config *clip_config, void *clip_mo
 
 // normalize: x = (x - mean) / std
 // TODO: implement bicubic interpolation instead of linear.
-bool clip_image_preprocess(clip_model_config *clip_config, void *clip_model_ptr, const clip_image_u8 *img, clip_image_f32 *res, const bool pad2square) {
+bool clip_image_preprocess(clip_model_config *clip_config, void *clip_model_ptr, const clip_image_u8 *img,
+                           clip_image_f32 *res, const bool pad2square) {
     // the logic below is to pad the shorter side to the longer side with a background color: rgb(122, 116, 104)
-    // see https://github.com/haotian-liu/LLaVA/blob/e854a2bf85118c504f6f16bf5c3c7c92f8fa8c6b/llava/conversation.py#L113-L156
+    // see
+    // https://github.com/haotian-liu/LLaVA/blob/e854a2bf85118c504f6f16bf5c3c7c92f8fa8c6b/llava/conversation.py#L113-L156
 
-    clip_image_u8 *temp = make_clip_image_u8(); // we will keep the input image data here temporarily
+    clip_image_u8 *temp = make_clip_image_u8();  // we will keep the input image data here temporarily
     if (pad2square && img->nx != img->ny) {
         int longer_side = std::max(img->nx, img->ny);
         temp->nx = longer_side;
         temp->ny = longer_side;
         temp->size = 3 * longer_side * longer_side;
         temp->data = new uint8_t[temp->size]();
-        uint8_t bc[3] = {122, 116, 104}; // bakground color in RGB from LLaVA
+        uint8_t bc[3] = {122, 116, 104};  // bakground color in RGB from LLaVA
 
         // fill with background color
         for (size_t i = 0; i < temp->size; i++) {
@@ -524,16 +494,16 @@ bool clip_image_preprocess(clip_model_config *clip_config, void *clip_model_ptr,
                 const int i = 3 * (y * img->nx + x);
                 const int j = 3 * (y * temp->nx + x);
                 temp->data[j] = img->data[i];
-                temp->data[j+1] = img->data[i+1];
-                temp->data[j+2] = img->data[i+2];
+                temp->data[j + 1] = img->data[i + 1];
+                temp->data[j + 2] = img->data[i + 2];
             }
         }
     } else {
-        temp->nx   = img->nx;
-        temp->ny   = img->ny;
+        temp->nx = img->nx;
+        temp->ny = img->ny;
         temp->size = img->size;
         temp->data = new uint8_t[temp->size]();
-        memcpy(&temp->data[0], &img->data[0], temp->size); // copy
+        memcpy(&temp->data[0], &img->data[0], temp->size);  // copy
     }
 
     const int nx = temp->nx;
@@ -552,8 +522,8 @@ bool clip_image_preprocess(clip_model_config *clip_config, void *clip_model_ptr,
     const int nx3 = int(nx / scale + 0.5f);
     const int ny3 = int(ny / scale + 0.5f);
 
-    const auto &m3 = clip_config->image_mean; // {0.48145466f, 0.4578275f, 0.40821073f};
-    const auto &s3 = clip_config->image_std;  // {0.26862954f, 0.26130258f, 0.27577711f};
+    const auto &m3 = clip_config->image_mean;  // {0.48145466f, 0.4578275f, 0.40821073f};
+    const auto &s3 = clip_config->image_std;   // {0.26862954f, 0.26130258f, 0.27577711f};
 
     for (int y = 0; y < ny3; y++) {
         for (int x = 0; x < nx3; x++) {

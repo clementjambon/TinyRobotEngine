@@ -6,11 +6,10 @@
 
 #include "Generate.h"
 #include "LLaMATokenizer.h"
+#include "OpenVLAActionDetokenizer.h"
 #include "common.h"
 #include "interface.h"
 #include "utils.h"
-
-#define STB_IMAGE_IMPLEMENTATION
 
 struct openvla_image_embed {
     float *embed;
@@ -18,29 +17,6 @@ struct openvla_image_embed {
 };
 
 static struct openvla_image_embed *load_image_embed(std::string embed_filename, const int embed_dim);
-
-static float clip(const float value, const float lower, const float upper);
-
-static float token_id_to_action(const int token_id, const int action_idx);
-
-// `bridge_orig` data!
-// TODO: put that in a proper struct loaded with the model
-constexpr float stats_q01[7] = {-0.02872725307941437,
-                                -0.04170349963009357,
-                                -0.026093858778476715,
-                                -0.08092105075716972,
-                                -0.09288699507713317,
-                                -0.20718276381492615,
-                                0.0};
-constexpr float stats_q99[7] = {0.028309678435325586,
-                                0.040855254605412394,
-                                0.040161586627364146,
-                                0.08192047759890528,
-                                0.07792850524187081,
-                                0.20382574498653397,
-                                1.0};
-
-constexpr bool stats_mask[7] = {true, true, true, true, true, true, false};
 
 std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr, int model_type, std::string text,
                             std::string img_path, const struct opt_params generation_config,
@@ -50,6 +26,9 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
     std::fill(last_n_tokens.begin(), last_n_tokens.end(), 0);
     std::vector<int> embd;
     std::vector<int> generate_ids;
+
+    // Create the detokenizer
+    const action_stats *act_stats = new action_stats();
 
     // Tokenize first-part text
     const int max_token = 2048;
@@ -243,11 +222,11 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
         if (interactive && !skip) {
             // output += llama_id_to_token(vocab, id);
             // std::cout << llama_id_to_token(vocab, id) << std::flush;
-            float action = token_id_to_action(id, action_idx);
+            float action = token_id_to_action(id, action_idx, act_stats);
             std::string action_str = std::to_string(action);
             output += action_str;
             std::cout << action_idx << ":" << action_str;
-            if (!stats_mask[action_idx]) {
+            if (!act_stats->mask[action_idx]) {
                 std::cout << " (masked)";
             }
             std::cout << std::endl;
@@ -271,30 +250,6 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
     set_print_reset();
 
     return output;
-}
-
-static float clip(const int value, const int lower, const int upper) {
-    if (value < lower) {
-        return lower;
-    } else if (value > upper) {
-        return upper;
-    }
-    return value;
-}
-
-static float token_id_to_action(const int token_id, const int action_idx) {
-    assert(action_idx < 7);
-    assert(token_id < 32000);
-    // TODO: de-hardcode this
-    // Compute normalized actions
-    const int n_action_bins = 256;
-    int discretized_actions = 32000 - token_id;
-    discretized_actions = clip(discretized_actions, 0, n_action_bins - 1);
-    float normalized_actions = 1.0f / n_action_bins + (2.0f * float(discretized_actions) / n_action_bins - 1.0f);
-    // Unnormalize actions
-    float action_low = stats_q01[action_idx];
-    float action_high = stats_q99[action_idx];
-    return 0.5 * (normalized_actions + 1) * (action_high - action_low) + action_low;
 }
 
 /*
