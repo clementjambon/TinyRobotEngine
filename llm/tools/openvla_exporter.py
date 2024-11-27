@@ -10,10 +10,11 @@ Example commandline:
 import argparse
 import math
 import os
+import sys
 import struct
 import torch
 import timm
-from transformers import AutoModelForVision2Seq, AutoProcessor
+from transformers import AutoModelForVision2Seq
 
 
 @torch.no_grad()
@@ -26,26 +27,14 @@ def _export_model(model, prefix):
 
     _export_vision_backbone(model.vision_backbone, os.path.join(f"{outpath}", "vision_backbone"))
 
+    _export_featurizer_projector(model.projector, os.path.join(outpath, "projector"))
+
     _export_llama_model(model.language_model.model, os.path.join(f"{outpath}", "decoder"))
 
-    # Export to Clip's folder "models/CLIP_ViT_Large"
-    # _export_mm_projector(model.model.mm_projector, f"models/CLIP_ViT_Large/mm_projector")
-    # for idx, mm_projector in enumerate(model.model.mm_projector):
-    #     if idx == 0 or idx == 2:
-    #         # _export_mm_projector(mm_projector, os.path.join(outpath, f"mm_projector_{idx}"))
-    #         # Export to Clip's folder "models/CLIP_ViT_Large"
-    #         _export_mm_projector(mm_projector, f"models/CLIP_ViT_Large/mm_projector_{idx}")
 
-
-# def _export_mm_projector(mm_projector, prefix):
-#     outpath = prefix
-#     os.makedirs(outpath, exist_ok=True)
-#     with open(os.path.join(f"{outpath}", "weight.bin"), "wb") as f:
-#         f.write(mm_projector.weight.cpu().float().numpy().tobytes())
-#     with open(os.path.join(f"{outpath}", "bias.bin"), "wb") as f:
-#         f.write(mm_projector.bias.cpu().float().numpy().tobytes())
-
-
+# =======================
+# Vision Backbone
+# =======================
 def _export_vision_backbone(model, prefix):
     outpath = prefix
     os.makedirs(outpath, exist_ok=True)
@@ -76,6 +65,14 @@ def _export_featurizer_model(
     _export_featurizer_encoder(model, os.path.join(outpath, "encoder"), layer_scale)
 
 
+def _export_featurizer_projector(model, prefix):
+    outpath = prefix
+    os.makedirs(outpath, exist_ok=True)
+    _export_featurizer_linearfp(model.fc1.weight, model.fc1.bias, os.path.join(outpath, "fc1"))
+    _export_featurizer_linearfp(model.fc2.weight, model.fc2.bias, os.path.join(outpath, "fc2"))
+    _export_featurizer_linearfp(model.fc3.weight, model.fc3.bias, os.path.join(outpath, "fc3"))
+
+
 def _export_featurizer_encoder(model: timm.models.VisionTransformer, prefix, layer_scale: bool):
     outpath = prefix
     os.makedirs(outpath, exist_ok=True)
@@ -96,6 +93,10 @@ def _export_featurizer_encoder_block(layer: timm.models.vision_transformer.Block
         _export_layer_scale(layer.ls2, os.path.join(outpath, "ls2"))
 
 
+# HF Transformers overwrites parameters with names containing `gamma`; we're going to patch VisionBackbone.LayerScale.
+#   =>> TIMM :: https://github.com/huggingface/pytorch-image-models/blob/main/timm/models/vision_transformer.py#L109
+#   =>> Transformers :: https://github.com/huggingface/transformers/blob/main/src/transformers/modeling_utils.py#L3960
+# NOTE: this means we have to take scale_factor (and not gamma)
 def _export_layer_scale(ls: timm.models.vision_transformer.LayerScale, prefix):
     outpath = prefix
     os.makedirs(outpath, exist_ok=True)
@@ -164,6 +165,18 @@ def _export_featurizer_embeddings(model, prefix, class_embed: bool, reg_embed: b
     os.makedirs(outpath, exist_ok=True)
     with open(os.path.join(f"{outpath}", "weight.bin"), "wb") as f:
         f.write(model.pos_embed.cpu().float().numpy().tobytes())
+
+
+def _export_BMM_F32T(alpha, prefix):
+    outpath = prefix
+    os.makedirs(outpath, exist_ok=True)
+    with open(os.path.join(f"{outpath}", "alpha.bin"), "wb") as f:
+        f.write(struct.pack("f", alpha))
+
+
+# =======================
+# Language Model
+# =======================
 
 
 def _export_embed_tokens(embed_tokens, prefix):
