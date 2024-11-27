@@ -125,7 +125,7 @@ def _export_featurizer_attention(attn: timm.models.vision_transformer.Attention,
     _export_featurizer_linearfp(k_proj, k_proj_bias, os.path.join(outpath, "k_proj"))
     _export_featurizer_linearfp(v_proj, v_proj_bias, os.path.join(outpath, "v_proj"))
     _export_featurizer_linearfp(q_proj, q_proj_bias, os.path.join(outpath, "q_proj"))
-    _export_linearfp(attn.proj, os.path.join(outpath, "out_proj"))
+    _export_featurizer_linearfp(attn.proj.weight, attn.proj.bias, os.path.join(outpath, "out_proj"))
     qk_bmm_alpha = 1 / math.sqrt(attn.head_dim)
     _export_BMM_F32T(qk_bmm_alpha, os.path.join(outpath, "qk_bmm"))
 
