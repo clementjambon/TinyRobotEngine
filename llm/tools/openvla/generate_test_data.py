@@ -16,13 +16,18 @@ device = "mps"
 def save_weights(weights: torch.Tensor, output: str, name: str):
     os.makedirs(output, exist_ok=True)
     with open(os.path.join(output, f"{name}.bin"), "wb") as f:
-        f.write(weights.contiguous().cpu().float().numpy().tobytes())
+        f.write(weights.cpu().float().numpy().tobytes())
 
 
 def save_featurizer(output, featurizer: timm.models.vision_transformer.VisionTransformer, pixel_values):
     save_weights(pixel_values, output, "pixel_values")
     patch_embeds = featurizer.patch_embed(pixel_values)
-    save_weights(patch_embeds, output, "patch_embeds")
+    print("patch_embeds", patch_embeds.shape)
+    embed_dim = patch_embeds.shape[-1]
+    save_weights(patch_embeds.reshape(16, 16, embed_dim).permute((2, 0, 1)), output, "patch_embeds")
+    embeddings = featurizer._pos_embed(patch_embeds)
+    print("embeddings", embeddings.shape)
+    save_weights(embeddings, output, "embeddings")
     patch_features = featurizer(pixel_values)
     save_weights(patch_features, output, "patch_features")
 
@@ -56,26 +61,6 @@ def main(args):
     save_featurizer(
         os.path.join(args.output, "fused_featurizer"), vla.vision_backbone.fused_featurizer, pixel_values[:, 3:]
     )
-
-    # with open(os.path.join(args.output, "pixel_values_featurizer.bin"), "wb") as f:
-    #     f.write(pixel_values[:, :3].contiguous().cpu().float().numpy().tobytes())
-    # with open(os.path.join(args.output, "pixel_values_fused_featurizer.bin"), "wb") as f:
-    #     f.write(pixel_values[:, 3:].contiguous().cpu().float().numpy().tobytes())
-    # # Extract patch features
-    # patch_embeds = vla.vision_backbone.featurizer.patch_embeds(pixel_values[:, :3])
-    # patch_features_featurizer = vla.vision_backbone.featurizer(pixel_values[:, :3])
-    # print(patch_features_featurizer.shape)
-    # with open(os.path.join(args.output, "patch_features_featurizer.bin"), "wb") as f:
-    #     f.write(patch_features_featurizer.contiguous().cpu().float().numpy().tobytes())
-    # patch_features_fused_featurizer = vla.vision_backbone.fused_featurizer(pixel_values[:, 3:])
-    # with open(os.path.join(args.output, "patch_features_fused_featurizer.bin"), "wb") as f:
-    #     f.write(patch_features_fused_featurizer.contiguous().cpu().float().numpy().tobytes())
-    # # Project
-    # projected_patch_embeddings = vla.projector(
-    #     torch.cat([patch_features_featurizer, patch_features_fused_featurizer], dim=2)
-    # )
-    # with open(os.path.join(args.output, "projected_patch_embeddings.bin"), "wb") as f:
-    #     f.write(projected_patch_embeddings.contiguous().cpu().float().numpy().tobytes())
 
 
 if __name__ == "__main__":

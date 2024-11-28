@@ -15,15 +15,24 @@ struct Fp32Dinov2VisionTransformer_input {
     Matrix3D<float> input_image;
     std::vector<Matrix3D<float>> past_keys, past_values;
     bool has_past_keys_values;
+    Matrix3D<float> patch_embed;
+    bool has_patch_embed;
 
     Fp32Dinov2VisionTransformer_input() {}
     Fp32Dinov2VisionTransformer_input(Matrix3D<float> input_image_) : input_image(input_image_) {
         has_past_keys_values = false;
+        has_patch_embed = false;
     }
     Fp32Dinov2VisionTransformer_input(Matrix3D<float> input_image_, std::vector<Matrix3D<float>> past_keys_,
                                       std::vector<Matrix3D<float>> past_values_)
         : input_image(input_image_), past_keys(past_keys_), past_values(past_values_) {
         has_past_keys_values = true;
+        has_patch_embed = false;
+    }
+    Fp32Dinov2VisionTransformer_input(Matrix3D<float> input_image_, Matrix3D<float> patch_embed_)
+        : input_image(input_image_), patch_embed(patch_embed_) {
+        has_past_keys_values = false;
+        has_patch_embed = true;
     }
 };
 
@@ -35,7 +44,7 @@ class Fp32Dinov2VisionTransformer {
     Embedding embed_positions;
     Conv2D embed_patch;
     int voc_size, embed_dim, padding_idx, hidden_dim, num_heads, image_size, patch_size, num_patches, projection_dim,
-        mmproj_dim, num_patch_tokens, num_tokens_extended, num_registers, layer_scale;
+        mmproj_dim, num_patch_tokens, num_extended_tokens, num_registers, layer_scale;
     bool class_token;
     std::vector<Fp32Dinov2EncoderLayer> layers;
     std::string profile_name = "Fp32Dinov2VisionTransformer";

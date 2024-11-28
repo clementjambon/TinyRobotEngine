@@ -8,7 +8,7 @@
 Fp32Dinov2VisionTransformer::Fp32Dinov2VisionTransformer(std::string param_path, const struct model_config config) {
     this->num_patches = config.image_size / config.patch_size;
     this->num_patch_tokens = num_patches * num_patches;
-    this->num_tokens_extended = num_patch_tokens + int(config.class_token) + config.num_registers;
+    this->num_extended_tokens = num_patch_tokens + int(config.class_token) + config.num_registers;
     this->voc_size = config.vocsize;
     this->embed_dim = config.embed_dim;
     this->hidden_dim = config.hidden_dim;
@@ -21,10 +21,10 @@ Fp32Dinov2VisionTransformer::Fp32Dinov2VisionTransformer(std::string param_path,
     allocate_aligned_memory(patch_embeds_buf, num_patch_tokens * config.embed_dim * sizeof(float));  // TODO
     allocate_aligned_memory(class_embeds_buf, int(this->class_token) * config.embed_dim * sizeof(float));
     allocate_aligned_memory(reg_embeds_buf, this->num_registers * config.embed_dim * sizeof(float));
-    allocate_aligned_memory(pos_embeds_buf, num_tokens_extended * config.embed_dim * sizeof(float));
+    allocate_aligned_memory(pos_embeds_buf, num_extended_tokens * config.embed_dim * sizeof(float));
     allocate_aligned_memory(last_hidden_states_buf, num_patch_tokens * config.embed_dim * sizeof(float));
-    allocate_aligned_memory(hidden_states_buf, num_tokens_extended * config.embed_dim * sizeof(float));
-    allocate_aligned_memory(embeddings_buf, num_tokens_extended * config.embed_dim * sizeof(float));
+    allocate_aligned_memory(hidden_states_buf, num_extended_tokens * config.embed_dim * sizeof(float));
+    allocate_aligned_memory(embeddings_buf, num_extended_tokens * config.embed_dim * sizeof(float));
 
     this->encoder = Fp32Dinov2Encoder(param_path + "/encoder", config);
 
@@ -57,9 +57,9 @@ Fp32Dinov2VisionTransformer::Fp32Dinov2VisionTransformer(std::string param_path,
     load_Conv2D(this->embed_patch, param_path + "/embeddings/patch_embedding");
     // Position Embedding
     float *posweight_buf;
-    allocate_aligned_memory(posweight_buf, config.embed_dim * num_tokens_extended * sizeof(float));
-    Matrix3D<float> posweight(posweight_buf, 1, num_tokens_extended, config.embed_dim);
-    this->embed_positions = Embedding(config.embed_dim, num_tokens_extended, padding_idx, posweight);
+    allocate_aligned_memory(posweight_buf, config.embed_dim * num_extended_tokens * sizeof(float));
+    Matrix3D<float> posweight(posweight_buf, 1, num_extended_tokens, config.embed_dim);
+    this->embed_positions = Embedding(config.embed_dim, num_extended_tokens, padding_idx, posweight);
     load_Embedding_params(this->embed_positions, param_path + "/embeddings/position_embedding");
 };
 
@@ -82,9 +82,15 @@ struct Fp32Dinov2VisionTransformer_output Fp32Dinov2VisionTransformer::forward(
 
     // Patch embeddings
     Matrix3D<float> patch_embeds(patch_embeds_buf, this->embed_dim, this->num_patches, this->num_patches);  // TODO
-    this->embed_patch.forward(input_image, patch_embeds);
+    if (input.has_patch_embed) {
+        assert(patch_embeds.same_dims(input.patch_embed));
+        patch_embeds = input.patch_embed;
+    } else {
+        this->embed_patch.forward(input_image, patch_embeds);
+    }
+
     // Class embeddings + register embeddings
-    Matrix3D<float> embeddings(embeddings_buf, 1, this->num_tokens_extended, this->embed_dim);
+    Matrix3D<float> embeddings(embeddings_buf, 1, this->num_extended_tokens, this->embed_dim);
     int offset = 0;
     if (this->class_token) {
         Matrix3D<float> class_embeds(class_embeds_buf, 1, 1, this->embed_dim);
@@ -100,10 +106,10 @@ struct Fp32Dinov2VisionTransformer_output Fp32Dinov2VisionTransformer::forward(
     }
     memcpy(embeddings.m_data + offset, patch_embeds.m_data, patch_embeds.length() * sizeof(float));
     // Position embeddings
-    int position_ids_buf[this->num_tokens_extended];
-    Matrix3D<int> position_ids(position_ids_buf, 1, 1, this->num_tokens_extended);
-    for (int i = 0; i < this->num_tokens_extended; i++) position_ids.m_data[i] = i + past_key_values_length;
-    Matrix3D<float> pos_embeds(pos_embeds_buf, 1, this->num_tokens_extended, this->embed_dim);
+    int position_ids_buf[this->num_extended_tokens];
+    Matrix3D<int> position_ids(position_ids_buf, 1, 1, this->num_extended_tokens);
+    for (int i = 0; i < this->num_extended_tokens; i++) position_ids.m_data[i] = i + past_key_values_length;
+    Matrix3D<float> pos_embeds(pos_embeds_buf, 1, this->num_extended_tokens, this->embed_dim);
     this->embed_positions.forward(position_ids, pos_embeds);
 
     assert(embeddings.m_dim_x == pos_embeds.m_dim_x);

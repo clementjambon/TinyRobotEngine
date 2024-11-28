@@ -41,7 +41,7 @@ def _export_vision_backbone(model, prefix):
     _export_featurizer_model(
         model.featurizer,
         os.path.join(f"{outpath}", "featurizer"),
-        class_embed=False,
+        class_embed=True,
         reg_embed=True,
         layer_scale=True,
     )
@@ -117,12 +117,12 @@ def _export_featurizer_attention(attn: timm.models.vision_transformer.Attention,
     outpath = prefix
     os.makedirs(outpath, exist_ok=True)
     dim = attn.qkv.weight.shape[1]
-    q_proj = attn.qkv.weight[:dim].contiguous()
-    k_proj = attn.qkv.weight[dim : 2 * dim].contiguous()
-    v_proj = attn.qkv.weight[2 * dim : 3 * dim].contiguous()
-    q_proj_bias = attn.qkv.bias[:dim].contiguous()
-    k_proj_bias = attn.qkv.bias[dim : 2 * dim].contiguous()
-    v_proj_bias = attn.qkv.bias[2 * dim : 3 * dim].contiguous()
+    q_proj = attn.qkv.weight[:dim]
+    k_proj = attn.qkv.weight[dim : 2 * dim]
+    v_proj = attn.qkv.weight[2 * dim : 3 * dim]
+    q_proj_bias = attn.qkv.bias[:dim]
+    k_proj_bias = attn.qkv.bias[dim : 2 * dim]
+    v_proj_bias = attn.qkv.bias[2 * dim : 3 * dim]
     _export_featurizer_linearfp(k_proj, k_proj_bias, os.path.join(outpath, "k_proj"))
     _export_featurizer_linearfp(v_proj, v_proj_bias, os.path.join(outpath, "v_proj"))
     _export_featurizer_linearfp(q_proj, q_proj_bias, os.path.join(outpath, "q_proj"))

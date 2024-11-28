@@ -16,29 +16,40 @@ void test_Fp32Dinov2VisionTransformer() {
     Fp32Dinov2VisionTransformer featurizer_model =
         Fp32Dinov2VisionTransformer("models/OpenVLA_7B/vision_backbone/featurizer", config);
 
+    // Load ground truth features
+    int num_patches = config.image_size / config.patch_size;
+    int num_image_tokens = num_patches * num_patches;
+    int num_extended_tokens = num_image_tokens + int(config.class_token) + config.num_registers;
+
+    Matrix3D<float> gt_patch_embeds(mem_buf.get_fpbuffer(num_image_tokens * config.embed_dim), config.embed_dim,
+                                    num_patches, num_patches);
+    gt_patch_embeds.load("assets/openvla/tests/model/featurizer/patch_embeds.bin");
+    std::cout << "gt_patch_embeds" << std::endl;
+    gt_patch_embeds.print_dims();
+
+    Matrix3D<float> gt_embeddings(mem_buf.get_fpbuffer(num_extended_tokens * config.embed_dim), 1, num_extended_tokens,
+                                  config.embed_dim);
+    gt_embeddings.load("assets/openvla/tests/model/featurizer/embeddings.bin");
+    std::cout << "gt_embeddings" << std::endl;
+    gt_embeddings.print_dims();
+
+    Matrix3D<float> gt_output(mem_buf.get_fpbuffer(num_image_tokens * config.embed_dim), 1, num_image_tokens,
+                              config.embed_dim);
+    gt_output.load("assets/openvla/tests/model/featurizer/patch_features.bin");
+    std::cout << "gt_output" << std::endl;
+    gt_output.print_dims();
+
     // Load processed image
     int num_pixels = 3 * config.image_size * config.image_size;
     Matrix3D<float> pixel_values(mem_buf.get_fpbuffer(num_pixels), 3, config.image_size, config.image_size);
     pixel_values.load("assets/openvla/tests/model/featurizer/pixel_values.bin");
-    struct Fp32Dinov2VisionTransformer_input model_input = {pixel_values};
+    // WARNING: for now, we cheat!
+    struct Fp32Dinov2VisionTransformer_input model_input(pixel_values);
     struct Fp32Dinov2VisionTransformer_output model_output;
     model_output = featurizer_model.forward(model_input);
 
-    // Load ground truth features
-    int num_patches = config.image_size / config.patch_size;
-    int num_image_tokens = num_patches * num_patches;
-
-    Matrix3D<float> patch_embeds(mem_buf.get_fpbuffer(num_image_tokens * config.embed_dim), config.embed_dim,
-                                 num_patches, num_patches);
-    patch_embeds.load("assets/openvla/tests/model/featurizer/patch_embeds.bin");
-    Matrix3D<float> output_gt(mem_buf.get_fpbuffer(num_image_tokens * config.embed_dim), 1, num_image_tokens,
-                              config.embed_dim);
-    output_gt.load("assets/openvla/tests/model/featurizer/patch_features.bin");
-
-    patch_embeds.print_dims();
-    model_output.patch_embeds.print_dims();
-
-    bool success = check_two_equal(patch_embeds.m_data, model_output.patch_embeds.m_data, patch_embeds.length(), 1e-8);
+    bool success = check_two_equal(gt_patch_embeds, model_output.patch_embeds, 1e-8);
+    // bool success = check_two_equal(gt_embeddings, model_output.embeddings, 1e-8);
 
     if (!success)
         std::cout << "-------- Test of " << __func__ << ": Fail! -------- " << std::endl;
