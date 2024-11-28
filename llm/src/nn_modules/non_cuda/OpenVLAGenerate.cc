@@ -97,8 +97,8 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
             } else {
                 // Load and preprocess image
                 auto start = std::chrono::high_resolution_clock::now();
-                // auto image_embed = load_image_embed(img_path, model_config.embed_dim);
-                auto image_embed = load_image(img_path, &featurizer_config, featurizer_model_ptr);
+                auto image_embed = load_image_embed(img_path, model_config.embed_dim);
+                // auto image_embed = load_image(img_path, &featurizer_config, featurizer_model_ptr);
                 auto end = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double> elapsed = end - start;
                 std::cout << "Image loading time: " << elapsed.count() << " s\n";
@@ -127,6 +127,7 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
             memcpy(logits.data(), &model_output.logits.m_data[(sqlen - 1) * generation_config.n_vocab],
                    generation_config.n_vocab * sizeof(float));
         } else if (model_type == LLaVA_FP32 || model_type == VILA_FP32) {
+            assert(false);
             Fp32LlamaForCausalLM *model = static_cast<Fp32LlamaForCausalLM *>(llama_model_ptr);
             struct Fp32LlamaForCausalLM_output model_output;
             struct Fp32LlamaForCausalLM_input model_input;

@@ -6,9 +6,11 @@
 #include "Generate.h"
 #include "interface.h"
 
-std::map<std::string, int> model_config = {{"OpenVLA_7B", OpenVLA_7B}, {"DINO_v2", DINO_v2}, {"SIGLIP", SIGLIP}};
+std::map<std::string, int> model_config = {
+    {"OpenVLA_7B", OpenVLA_7B}, {"OpenVLA_7B_fake_awq", OpenVLA_7B}, {"DINO_v2", DINO_v2}, {"SIGLIP", SIGLIP}};
 
-std::map<std::string, std::string> model_path = {{"OpenVLA_7B", "models/OpenVLA_7B"}};
+std::map<std::string, std::string> model_path = {{"OpenVLA_7B", "models/OpenVLA_7B"},
+                                                 {"OpenVLA_7B_fake_awq", "models/OpenVLA_7B_fake_awq"}};
 
 std::map<std::string, int> data_format_list = {
     {"FP32", FP32}, {"INT8", QINT8}, {"INT4", INT4}, {"int4", INT4}, {"fp32", FP32},
@@ -28,10 +30,10 @@ bool convertToBool(const char* str) {
 int NUM_THREAD = 5;
 
 int main(int argc, char* argv[]) {
-    std::string target_model = "OpenVLA_7B";
+    std::string target_model = "OpenVLA_7B_fake_awq";
     std::string target_data_format = "INT4";
     bool instruct = true;
-    std::string img_path = "data/rd_robot.jpeg";
+    std::string img_path = "embeds/OpenVLA_7B/embeds.bin";
     Profiler::getInstance().for_demo = true;
 
     // Set prompt color
@@ -95,7 +97,7 @@ int main(int argc, char* argv[]) {
     }
     // DEFAULT
     else {
-        target_model = "OpenVLA_7B";
+        target_model = "OpenVLA_7B_fake_awq";
         target_data_format = "INT4";
         std::cout << "Using model: " + target_model << std::endl;
         std::cout << "Using data format: " + target_data_format << std::endl;
@@ -175,8 +177,8 @@ int main(int argc, char* argv[]) {
             const struct vit_model_config featurizer_config = vit_model_config();
             Fp32Dinov2VisionTransformer featurizer_model = Fp32Dinov2VisionTransformer(
                 llama_m_path + "/vision_backbone/featurizer", get_opt_model_config(model_config["DINO_v2"]));
-            Fp32Dinov2VisionTransformer fused_featurizer_model = Fp32Dinov2VisionTransformer(
-                llama_m_path + "/vision_backbone/fused_featurizer", get_opt_model_config(model_config["SIGLIP"]));
+            // Fp32Dinov2VisionTransformer fused_featurizer_model = Fp32Dinov2VisionTransformer(
+            //     llama_m_path + "/vision_backbone/fused_featurizer", get_opt_model_config(model_config["SIGLIP"]));
 
             llama_m_path = "INT4/" + llama_m_path;
             Int4LlamaForCausalLM llama_model = Int4LlamaForCausalLM(llama_m_path, get_opt_model_config(llama_model_id));

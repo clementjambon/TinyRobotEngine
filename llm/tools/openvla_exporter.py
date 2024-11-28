@@ -258,6 +258,7 @@ def _export_attention_params(attn, prefix: str):
 def main():
     """Export an OpenVLA model to TinyChatEngine format."""
     parser = argparse.ArgumentParser(description="export OpenVLA pytorch model to TinyChatEngine format.")
+    parser.add_argument("--lm_path", type=str, help="Path to local weights for the language model", default=None)
     parser.add_argument("--hf_path", type=str, help="Path to huggingface model hub", default="openvla/openvla-7b")
     parser.add_argument(
         "--output", type=str, help="Output directory of the exported model", default="models/OpenVLA_7B"
@@ -271,6 +272,18 @@ def main():
         # low_cpu_mem_usage=True,
         trust_remote_code=True,
     )
+
+    if args.lm_path:
+
+        assert args.output != "models/OpenVLA_7B"
+
+        from transformers import AutoModelForCausalLM
+
+        language_model = AutoModelForCausalLM.from_pretrained(
+            args.lm_path, torch_dtype=torch.float16, trust_remote_code=False
+        )
+        # Overwrites with the fake-quantized model
+        model.language_model = language_model
 
     print("Start exporting OpenVLA model...")
     _export_model(model, args.output)
