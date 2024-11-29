@@ -2,6 +2,7 @@
 # > pip install -r https://raw.githubusercontent.com/openvla/openvla/main/requirements-min.txt
 import os
 from argparse import ArgumentParser
+from typing import List, Any
 
 import tqdm
 from torch.utils.data import DataLoader
@@ -21,10 +22,20 @@ import time
 IGNORE_INDEX = -100
 
 
-def save_tensor(weights: torch.Tensor, output: str, name: str):
+def save_tensor(weights: torch.Tensor, output: str, name: str, is_int: bool = False):
     os.makedirs(output, exist_ok=True)
     with open(os.path.join(output, f"{name}.bin"), "wb") as f:
-        f.write(weights.cpu().float().numpy().tobytes())
+        if is_int:
+            f.write(weights.cpu().int().numpy().tobytes())
+        else:
+            f.write(weights.cpu().float().numpy().tobytes())
+
+
+def save_info(list: List[int], output: str, name: str):
+    os.makedirs(output, exist_ok=True)
+    with open(os.path.join(output, f"{name}.bin"), "wb") as f:
+        for x in list:
+            f.write(x.to_bytes(4, byteorder="little"))
 
 
 @torch.no_grad()
@@ -98,6 +109,8 @@ def main(args):
                 )
 
             # Get Input Embeddings (from Language Model Embeddings)
+            save_tensor(input_ids, args.output, f"{batch_idx:04d}_input_ids", is_int=True)
+            save_info([input_ids.shape[-1]], args.output, f"{batch_idx:04d}_info")
             input_embeddings = vla.get_input_embeddings()(input_ids)
 
             # Build Multimodal Embeddings & Attention Mask =>> Prismatic defaults to inserting after <BOS> token (1:)

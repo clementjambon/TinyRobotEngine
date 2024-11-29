@@ -126,33 +126,36 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
             // memcpy model_ouput.logits[-1] to logits
             memcpy(logits.data(), &model_output.logits.m_data[(sqlen - 1) * generation_config.n_vocab],
                    generation_config.n_vocab * sizeof(float));
+
         } else if (model_type == LLaVA_FP32 || model_type == VILA_FP32) {
             assert(false);
-            Fp32LlamaForCausalLM *model = static_cast<Fp32LlamaForCausalLM *>(llama_model_ptr);
-            struct Fp32LlamaForCausalLM_output model_output;
-            struct Fp32LlamaForCausalLM_input model_input;
-            if (has_past_kv) {
-                Matrix3D<int> input_ids_mat(input_ids.data(), 1, 1, sqlen);
-                model_input = {input_ids_mat, past_keys, past_values};
-            } else {
-                // auto image_embed = load_image(img_path, clip_model_ptr, is_vila);
-                // TODO(clem): de-hardcode this!
-                const int n_image_tokens = 256;
-                auto image_embed = load_image_embed(img_path, model_config.embed_dim);
-                sqlen = input_ids.size() + n_image_tokens;
-                int first_sqlen = input_ids.size();
-                Matrix3D<int> input_ids_mat(input_ids.data(), 1, 1, first_sqlen);
-                Matrix3D<float> image_embed_mat(image_embed->embed, 1, n_image_tokens, 4096);
-                model_input = {input_ids_mat, image_embed_mat};
-            }
-            if (!new_prompt) STATS_START("Inference latency");
-            model_output = model->forward(model_input);
-            if (!new_prompt) STATS_END("Inference latency");
-            past_keys = model_output.past_keys;
-            past_values = model_output.past_values;
-            // memcpy model_ouput.logits[-1] to logits
-            memcpy(logits.data(), &model_output.logits.m_data[(sqlen - 1) * generation_config.n_vocab],
-                   generation_config.n_vocab * sizeof(float));
+            // WARNING: this doesn't work anymore... We only run inference at INT4 precision
+
+            // Fp32LlamaForCausalLM *model = static_cast<Fp32LlamaForCausalLM *>(llama_model_ptr);
+            // struct Fp32LlamaForCausalLM_output model_output;
+            // struct Fp32LlamaForCausalLM_input model_input;
+            // if (has_past_kv) {
+            //     Matrix3D<int> input_ids_mat(input_ids.data(), 1, 1, sqlen);
+            //     model_input = {input_ids_mat, past_keys, past_values};
+            // } else {
+            //     // auto image_embed = load_image(img_path, clip_model_ptr, is_vila);
+            //     // TODO(clem): de-hardcode this!
+            //     const int n_image_tokens = 256;
+            //     auto image_embed = load_image_embed(img_path, model_config.embed_dim);
+            //     sqlen = input_ids.size() + n_image_tokens;
+            //     int first_sqlen = input_ids.size();
+            //     Matrix3D<int> input_ids_mat(input_ids.data(), 1, 1, first_sqlen);
+            //     Matrix3D<float> image_embed_mat(image_embed->embed, 1, n_image_tokens, 4096);
+            //     model_input = {input_ids_mat, image_embed_mat};
+            // }
+            // if (!new_prompt) STATS_START("Inference latency");
+            // model_output = model->forward(model_input);
+            // if (!new_prompt) STATS_END("Inference latency");
+            // past_keys = model_output.past_keys;
+            // past_values = model_output.past_values;
+            // // memcpy model_ouput.logits[-1] to logits
+            // memcpy(logits.data(), &model_output.logits.m_data[(sqlen - 1) * generation_config.n_vocab],
+            //        generation_config.n_vocab * sizeof(float));
         }
         has_past_kv = true;
 
