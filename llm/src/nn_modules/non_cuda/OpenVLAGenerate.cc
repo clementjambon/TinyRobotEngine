@@ -39,11 +39,11 @@ bool vit_image_preprocess(const vit_model_config *vit_config, void *vit_model_pt
 // Clip value between a and b
 static float clip(const float value, const float lower, const float upper);
 
-std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
-                            const struct vit_model_config featurizer_config, void *featurizer_model_ptr, int model_type,
-                            std::string text, std::string img_path, const struct opt_params generation_config,
-                            const struct model_config model_config, std::string voc_path, bool interactive,
-                            bool voicechat) {
+std::vector<float> OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
+                                   const struct vit_model_config featurizer_config, void *featurizer_model_ptr,
+                                   int model_type, std::string text, std::string img_path,
+                                   const struct opt_params generation_config, const struct model_config model_config,
+                                   std::string voc_path, bool interactive, bool voicechat) {
     std::vector<int> last_n_tokens(generation_config.n_ctx);
     std::fill(last_n_tokens.begin(), last_n_tokens.end(), 0);
     std::vector<int> embd;
@@ -79,7 +79,8 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
     static bool has_past_kv = false;
     static std::vector<Matrix3D<float>> past_keys, past_values;
     int n_remain = generation_config.n_predict;
-    std::string output;
+    std::vector<float> output;
+
     while (n_remain != 0 && break_cnt) {
         std::vector<float> logits(generation_config.n_vocab);
 
@@ -111,15 +112,7 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
                 model_input = {input_ids_mat, image_embed_mat};
             }
             if (!new_prompt) STATS_START("Inference latency");
-            // auto start = std::chrono::high_resolution_clock::now();
             model_output = model->forward(llama_param_path, model_input);
-            // auto end = std::chrono::high_resolution_clock::now();
-            // std::chrono::duration<double> elapsed = end - start;
-            // static bool flag = true;
-            // if (flag) {
-            //     std::cout << "Inference time: " << elapsed.count() << " s\n";
-            //     flag = false;
-            // }
             if (!new_prompt) STATS_END("Inference latency");
             past_keys = model_output.past_keys;
             past_values = model_output.past_values;
@@ -159,7 +152,7 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
         }
         has_past_kv = true;
 
-        if (first_prompt) {
+        if (first_prompt && interactive) {
             break;
         }
 
@@ -197,24 +190,28 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
 
         int id = 0;
         if (temp <= 0) {
+            assert(false);
             id = sample_token_greedy(&candidates_p);
         } else {
             if (mirostat == 1) {
+                assert(false);
                 static float mirostat_mu = 2.0f * mirostat_tau;
                 const int mirostat_m = 100;
                 sample_temperature(&candidates_p, temp);
                 id =
                     sample_token_mirostat(n_vocab, &candidates_p, mirostat_tau, mirostat_eta, mirostat_m, &mirostat_mu);
             } else if (mirostat == 2) {
+                assert(false);
                 static float mirostat_mu = 2.0f * mirostat_tau;
                 sample_temperature(&candidates_p, temp);
                 id = sample_token_mirostat_v2(&candidates_p, mirostat_tau, mirostat_eta, &mirostat_mu);
             } else {
+                // NB: we do standard likelihood-based sampling
                 // Temperature sampling
-                sample_top_k(&candidates_p, top_k, 1);
-                sample_tail_free(&candidates_p, tfs_z, 1);
-                sample_typical(&candidates_p, typical_p, 1);
-                sample_top_p(&candidates_p, top_p, 1);
+                // sample_top_k(&candidates_p, top_k, 1);
+                // sample_tail_free(&candidates_p, tfs_z, 1);
+                // sample_typical(&candidates_p, typical_p, 1);
+                // sample_top_p(&candidates_p, top_p, 1);
                 sample_temperature(&candidates_p, temp);
                 id = sample_token(&candidates_p);
             }
@@ -246,12 +243,14 @@ std::string OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
         generate_ids.push_back(id);
         input_ids = std::vector<int>{id};
 
+        float action = token_id_to_action(id, action_idx, act_stats);
+        output.push_back(action);
+
         if (interactive && !skip) {
             // output += llama_id_to_token(vocab, id);
             // std::cout << llama_id_to_token(vocab, id) << std::flush;
-            float action = token_id_to_action(id, action_idx, act_stats);
+
             std::string action_str = std::to_string(action);
-            output += action_str;
             std::cout << action_idx << ":" << action_str;
             if (!act_stats->mask[action_idx]) {
                 std::cout << " (masked)";

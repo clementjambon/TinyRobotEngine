@@ -208,6 +208,9 @@ profile_Fp32llamaForCausalLM: tests/test_Fp32llamaForCausalLM.cc $(PROFILE_OBJS)
 profile_OPTForCausalLM: tests/test_OPTForCausalLM.cc $(PROFILE_OBJS)
 	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) -DPROFILER -o $@ $^ $(LIB) $(LDFLAGS)
 
+profile_OpenVLAGenerate: tests/test_OpenVLAGenerate.cc $(PROFILE_OBJS)
+	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) -DPROFILER -o $@ $^ $(LIB) $(LDFLAGS)
+
 ifdef CUDA_AVAILABLE
 profile_Int4llamaForCausalLM: tests/cuda/test_Int4llamaForCausalLM.cu $(PROFILE_OBJS)
 	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) -DPROFILER -o $@ $^ $(LIB) $(LDFLAGS)
