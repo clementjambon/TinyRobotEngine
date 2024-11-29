@@ -226,7 +226,7 @@ endif
 $(CHAT_TARGET): %: application/%.cc $(OBJS)
 	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) -o $(CHATNAME) $^ $(LIB) $(LDFLAGS)
 
-# Rule for CHAT_TARGET
+# Rule for ROBOT_TARGET
 $(ROBOT_TARGET): %: application/%.cc $(OBJS)
 	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) -o $(ROBOTNAME) $^ $(LIB) $(LDFLAGS)
 

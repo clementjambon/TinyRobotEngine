@@ -8,11 +8,18 @@ Before getting any further, please not that this repo was designed for **executi
 
 ### Setup
 
-Please start by following the initial installation instructions of TinyChatEngine.
+Please start by following the initial installation instructions of TinyChatEngine. 
 
 Compile the executable using
 ```shell
 make robot -j
+```
+
+In your conda environment, install OpenVLA. This is necessary to produce embeddings and run tests.
+```shell
+git clone https://github.com/openvla/openvla.git
+cd openvla
+pip install -e .
 ```
 
 ### Converting weights to binaries
@@ -54,7 +61,7 @@ python tools/openvla/export_image_tokens_dataset.py (--hf_path {HF_PATH} --n_max
 By default, this will export embeddings as `embeds/OpenVLA_7B/0000_projected_patch_embeddings.bin` (where `0000` corresponds to a data point). 
 NB: we also export other embeddings for unit tests.
 
-### Running inference
+### Inference
 
 With this, you can then run inference using
 ```shell
