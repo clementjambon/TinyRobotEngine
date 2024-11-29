@@ -1,6 +1,9 @@
-![tinychat_logo](assets/figures/tinychat_logo.png)
+# TinyRobotEngine 🤖: On-Device VLA Model Inference
+
+This repo is built on top of TinyChatEngine. The original README is kept below. For instructions specific to TinyRobotEngine, please refer to [this document](README_ROBOT.md).
 
 # TinyChatEngine: On-Device LLM/VLM Inference Library
+![tinychat_logo](assets/figures/tinychat_logo.png)
 
 Running large language models (LLMs) and visual language models (VLMs) on the edge is useful: copilot services (coding, office, smart reply) on laptops, cars, robots, and more. Users can get instant responses  with better privacy, as the data is local.
 

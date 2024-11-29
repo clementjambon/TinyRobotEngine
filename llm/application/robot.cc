@@ -27,18 +27,18 @@ bool convertToBool(const char* str) {
     }
 }
 
-int NUM_THREAD = 5;
+int NUM_THREAD = 8;
 
 int main(int argc, char* argv[]) {
-    std::string target_model = "OpenVLA_7B_fake_awq";
+    std::string target_model = "OpenVLA_7B";
     std::string target_data_format = "INT4";
     bool instruct = true;
-    std::string img_path = "embeds/OpenVLA_7B/embeds.bin";
+    std::string img_path = "embeds/OpenVLA_7B/0000_projected_patch_embeddings.bin";
     Profiler::getInstance().for_demo = true;
 
     // Set prompt color
     set_print_yellow();
-    std::cout << "TinyChatEngine by MIT HAN Lab: https://github.com/mit-han-lab/TinyChatEngine" << std::endl;
+    std::cout << "TinyRobotEngine: https://github.com/clementjambon/TinyRobotEngine/" << std::endl;
 
     if (argc >= 3 && argc <= 5) {
         auto target_str = argv[1];
@@ -75,10 +75,9 @@ int main(int argc, char* argv[]) {
             throw("Unsupported data format\n");
         }
         target_data_format = argv[2];
-        if (target_data_format == "INT4" || target_data_format == "int4")
-            std::cout << "Using AWQ for 4bit quantization: https://github.com/mit-han-lab/llm-awq" << std::endl;
-        else
-            std::cout << "Using data format: " << argv[2] << std::endl;
+        std::cout << "Using data format: " << argv[2] << std::endl;
+
+        std::cout << "Using img: " + img_path << std::endl;
     } else if (argc == 2) {
         auto target_str = argv[1];
         target_model = argv[1];
@@ -97,10 +96,11 @@ int main(int argc, char* argv[]) {
     }
     // DEFAULT
     else {
-        target_model = "OpenVLA_7B_fake_awq";
+        target_model = "OpenVLA_7B";
         target_data_format = "INT4";
         std::cout << "Using model: " + target_model << std::endl;
         std::cout << "Using data format: " + target_data_format << std::endl;
+        std::cout << "Using img: " + img_path << std::endl;
     }
 
     // Only OpenVLA_7B is supported now
