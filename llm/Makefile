@@ -102,7 +102,7 @@ else ifeq ($(shell uname -m),aarch64)
 		CXXFLAGS += -march=native -DUSE_INT8_INT4_PRODUCT -DQM_ARM -fPIC
 	endif
 else ifeq ($(shell uname -p),arm)
-	CXX = /opt/homebrew/opt/llvm/bin/clang++ -g
+	CXX = /opt/homebrew/opt/llvm/bin/clang++
 	LIB += -L/opt/homebrew/opt/boost/lib
 	# For ARM A-series (such as Mac M1) with Metal GPU
 	ifdef USE_METAL
