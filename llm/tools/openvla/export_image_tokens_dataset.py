@@ -86,6 +86,8 @@ def main(args):
 
             # Project
             projected_patch_embeddings = vla.projector(patch_features)
+            save_tensor(projected_patch_embeddings.cpu(), args.output, f"{batch_idx:04d}_projected_patch_embeddings")
+
             projected_patch_attention_mask = None
             if attention_mask is not None:
                 projected_patch_attention_mask = torch.full(
@@ -102,44 +104,44 @@ def main(args):
             multimodal_embeddings = torch.cat(
                 [input_embeddings[:, :1, :], projected_patch_embeddings, input_embeddings[:, 1:, :]], dim=1
             )
-            multimodal_attention_mask = None
-            if attention_mask is not None:
-                multimodal_attention_mask = torch.cat(
-                    [attention_mask[:, :1], projected_patch_attention_mask, attention_mask[:, 1:]], dim=1
-                )
-
-            # [Contract] We assume the first token of `labels` (associated with <BOS>) is already marked as "IGNORE"
-            #   => We'll ignore the per-token outputs for each of the patch embeddings as well!
-            multimodal_labels = None
-            if labels is not None:
-                projected_patch_labels = torch.full(
-                    (projected_patch_embeddings.shape[0], projected_patch_embeddings.shape[1]),
-                    IGNORE_INDEX,
-                    dtype=labels.dtype,
-                    device=labels.device,
-                )
-                multimodal_indices = torch.arange(len(input_ids), dtype=torch.long, device=input_ids.device)
-                multimodal_labels = torch.cat(
-                    [labels[multimodal_indices, :1], projected_patch_labels, labels[multimodal_indices, 1:]], dim=1
-                )
-
-            llm_output = vla.language_model(
-                input_ids=None,
-                attention_mask=multimodal_attention_mask,
-                position_ids=None,
-                past_key_values=None,
-                inputs_embeds=multimodal_embeddings,
-                labels=multimodal_labels,
-                use_cache=None,
-                output_attentions=None,
-                output_hidden_states=None,
-                return_dict=None,
-            )
-
-            # Save
-            save_tensor(projected_patch_embeddings.cpu(), args.output, f"{batch_idx:04d}_projected_patch_embeddings")
             save_tensor(multimodal_embeddings.cpu(), args.output, f"{batch_idx:04d}_multimodal_embeddings")
-            save_tensor(llm_output.logits[..., :vocab_size].cpu(), args.output, f"{batch_idx:04d}_logits")
+
+            if args.export_logits:
+                multimodal_attention_mask = None
+                if attention_mask is not None:
+                    multimodal_attention_mask = torch.cat(
+                        [attention_mask[:, :1], projected_patch_attention_mask, attention_mask[:, 1:]], dim=1
+                    )
+
+                # [Contract] We assume the first token of `labels` (associated with <BOS>) is already marked as "IGNORE"
+                #   => We'll ignore the per-token outputs for each of the patch embeddings as well!
+                multimodal_labels = None
+                if labels is not None:
+                    projected_patch_labels = torch.full(
+                        (projected_patch_embeddings.shape[0], projected_patch_embeddings.shape[1]),
+                        IGNORE_INDEX,
+                        dtype=labels.dtype,
+                        device=labels.device,
+                    )
+                    multimodal_indices = torch.arange(len(input_ids), dtype=torch.long, device=input_ids.device)
+                    multimodal_labels = torch.cat(
+                        [labels[multimodal_indices, :1], projected_patch_labels, labels[multimodal_indices, 1:]], dim=1
+                    )
+
+                llm_output = vla.language_model(
+                    input_ids=None,
+                    attention_mask=multimodal_attention_mask,
+                    position_ids=None,
+                    past_key_values=None,
+                    inputs_embeds=multimodal_embeddings,
+                    labels=multimodal_labels,
+                    use_cache=None,
+                    output_attentions=None,
+                    output_hidden_states=None,
+                    return_dict=None,
+                )
+
+                save_tensor(llm_output.logits[..., :vocab_size].cpu(), args.output, f"{batch_idx:04d}_logits")
 
             progress.update()
 
@@ -152,6 +154,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_name", type=str, default="bridge_orig")
     parser.add_argument("--n_max", type=int, default=2)
     parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--export_logits", action="store_true")
 
     args = parser.parse_args()
     main(args)
