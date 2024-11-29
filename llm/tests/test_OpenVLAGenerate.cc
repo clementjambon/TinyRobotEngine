@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "Generate.h"
+#include "interface.h"
 
 int NUM_THREAD = 8;
 
@@ -24,12 +25,21 @@ int main() {
     // Not used
     struct vit_model_config featurizer_config;
 
-    std::vector<float> output = OpenVLAGenerate(llama_param_path, &llama_model, featurizer_config, NULL, LLaVA_INT4,
-                                                "What action should the robot take to move the blocks?", img_path,
-                                                generation_config, llama_config, "models/llama_vocab.bin", false);
+    for (int i = 0; i < 10; ++i) {
+        std::vector<float> output = OpenVLAGenerate(llama_param_path, &llama_model, featurizer_config, NULL, LLaVA_INT4,
+                                                    "What action should the robot take to move the blocks?", img_path,
+                                                    generation_config, llama_config, "models/llama_vocab.bin", false);
 
-    std::cout << "generated:" << output.size() << std::endl;
-    for (auto it = output.begin(); it != output.end(); ++it) {
-        std::cout << *it << std::endl;
-    };
+        std::cout << "generated:" << output.size() << std::endl;
+        for (auto it = output.begin(); it != output.end(); ++it) {
+            std::cout << *it << std::endl;
+        };
+    }
+
+    // Set prompt color
+    set_print_yellow();
+    Profiler::getInstance().report_internal();
+    Profiler::getInstance().reset();
+    // Reset make
+    set_print_reset();
 }

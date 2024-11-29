@@ -8,7 +8,7 @@ Before getting any further, please not that this repo was designed for **executi
 
 ### Setup
 
-Please start by following the initial installation instructions of TinyChatEngine. 
+Please start by following the initial installation instructions of TinyChatEngine. Make sure that `nlohmann-json` is properly installed.
 
 Compile the executable using
 ```shell
@@ -66,4 +66,12 @@ NB: we also export other embeddings for unit tests.
 With this, you can then run inference using
 ```shell
 ./robot (OpenVLA_7B INT4 NUM_THREADS EMBED_PATH)
+```
+
+## Profile inference
+
+You can profile inference using
+```shell
+make profile_OpenVLAGenerate -j
+./profile_OpenVLAGenerate
 ```

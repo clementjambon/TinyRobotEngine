@@ -223,6 +223,13 @@ int main(int argc, char* argv[]) {
                 OpenVLAGenerate(llama_m_path, &llama_model, featurizer_config, &featurizer_model, LLaVA_INT4, input,
                                 img_path, generation_config, get_opt_model_config(llama_model_id),
                                 "models/llama_vocab.bin", true, false);
+
+                // Set prompt color
+                set_print_yellow();
+                Profiler::getInstance().report_internal();
+                Profiler::getInstance().reset();
+                // Reset make
+                set_print_reset();
             }
         } else {
             std::cout << std::endl;

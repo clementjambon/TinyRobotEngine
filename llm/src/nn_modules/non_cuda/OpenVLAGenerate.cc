@@ -268,12 +268,12 @@ std::vector<float> OpenVLAGenerate(std::string llama_param_path, void *llama_mod
     }
     first_prompt = false;
 
-    // Set prompt color
-    set_print_yellow();
-    Profiler::getInstance().report_internal();
-    Profiler::getInstance().reset();
-    // Reset color
-    set_print_reset();
+    // // Set prompt color
+    // set_print_yellow();
+    // Profiler::getInstance().report_internal();
+    // Profiler::getInstance().reset();
+    // // Reset color
+    // set_print_reset();
 
     return output;
 }
