@@ -59,22 +59,31 @@ python tools/openvla/export_image_tokens_dataset.py (--hf_path {HF_PATH} --n_max
 ```
 
 By default, this will export embeddings as `embeds/OpenVLA_7B/0000_projected_patch_embeddings.bin` (where `0000` corresponds to a data point). 
-NB: we also export other embeddings for unit tests.
+NB: we also export other embeddings for unit tests (use `--export_logits` to get the corresponding logits).
 
-### Inference
+If you want to export the full dataset, use `--n_max -1`.
 
-With this, you can then run inference using
+### Interactive mode
+
+With this, you can try run inference using with the interactive mode
 ```shell
 ./robot (OpenVLA_7B INT4 NUM_THREADS EMBED_PATH)
 ```
+where `EMBED_PATH` is the path of the embedding you precomputed before.
 
 ## Profile inference
 
-You can profile inference using
+You can test and profile (LLM) inference using
 ```shell
+make test_OpenVLAGenerate -j
+./test_OpenVLAGenerate
 make profile_OpenVLAGenerate -j
 ./profile_OpenVLAGenerate
 ```
+
+NB: To do this, please make sure you precomputed **ALL** image embeddings from [our subset of the OpenVLA dataset](https://drive.google.com/file/d/1SVoF6u_8pmx5sPWcj4bXETbRlflmFlbZ/view?usp=drive_link)!
+
+These scripts will compute the **average (token-wise) accuracy** and the **average time it takes to infer the 7 action tokens** on your machine.
 
 ## Findings about generation
 
