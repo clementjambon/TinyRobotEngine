@@ -82,12 +82,12 @@ def main(args):
     )
 
     # Evaluate!
-    with tqdm.tqdm(total=args.n_max, leave=False) as progress:
+    with tqdm.tqdm(total=args.n_max if args.n_max > 0 else len(vla_dataset), leave=False) as progress:
         for batch_idx, batch in enumerate(dataloader):
             if batch_idx * args.batch_size >= args.n_max:
                 break
 
-            pixels_values = batch["pixel_values"].to(torch.bfloat16)
+            pixels_values = batch["pixel_values"].to(torch.bfloat16).to(device)
             attention_mask = batch["attention_mask"].to(device)
             input_ids = batch["input_ids"].to(device)
             labels = batch["labels"]
