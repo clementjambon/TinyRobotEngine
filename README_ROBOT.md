@@ -80,9 +80,10 @@ make profile_OpenVLAGenerate -j
 
 Below, we describe how we analyzed OpenVLA's data processing in order to match generation within TinyRobotEngine.
 
-* When called with `"In: What action should the robot take to pick up the blue fork and place it on the left of the pot?\nOut:"` (through `basic_inference.py`), the model will call `self.generate` with `'<s> In: What action should the robot take to pick up the blue fork and place it on the left of the pot?\nOut: '` (exactly).
+* When called with `"In: What action should the robot take to pick up the blue fork and place it on the left of the pot?\nOut:"` (through `basic_inference.py`), the model will call `self.generate` with `'<s> In: What action should the robot take to pick up the blue fork and place it on the left of the pot?\nOut: '` (exactly. Notice the empty token that was added at the end. More on this further down.).
 * The forward function of `PrismaticForConditionalGeneration` is then called with `input_ids=tensor([[    1,   512, 29901,  1724,  3158,   881,   278, 19964,  2125,   304,
           5839,   701,   278,  7254, 27350,   322,  2058,   372,   373,   278,
           2175,   310,   278,  3104, 29973,    13,  3744, 29901, 29871]])` (29 tokens) which yield `input_embeddings` with shape `torch.Size([1, 29, 4096])`. `projected_patch_embeddings` has shape `torch.Size([1, 256, 4096])`.
 * All of them are concatenated to produce a `multimodal_embeddings` of shape `torch.Size([1, 285, 4096])` (where `29 + 256=285`) but the start token `<s>` is placed **before the image embedding** and the `multimodal_attention_mask` has shape `torch.Size([1, 284])`.
 * For generation, we have `max_new_tokens=7` (easy), `greedy_search=GenerationMode.GREEDY_SEARCH` = no sampling!
+* The special empty token 29871 has to be inserted after `"Out: "`. See [this](https://github.com/openvla/openvla/blob/0214a0c7c09942fb8e0ec3c3948c00e4e8949911/prismatic/extern/hf/modeling_prismatic.py#L510): `The special empty token ('') does not already appear after the colon (':') token in the prompt (after "OUT:" or "ASSISTANT:"), insert it to match the inputs seen at training time`.

@@ -47,7 +47,12 @@ void print_openvla_output(struct OpenVLAGenerate_Output output) {
 }
 
 struct OpenVLAGenerate_Output OpenVLAGenerate(struct OpenVLAGenerate_Input &input) {
-    std::cout << "Received text: " << input.text << std::endl;
+    if (input.verbose) {
+        if (input.input_ids.length() > 0) {
+        } else {
+        }
+        std::cout << "Received text: " << input.text << std::endl;
+    }
 
     std::vector<int> generated_ids;
     std::vector<float> generated_actions;
@@ -56,14 +61,22 @@ struct OpenVLAGenerate_Output OpenVLAGenerate(struct OpenVLAGenerate_Input &inpu
     const action_stats *act_stats = new action_stats();
 
     // =================
-    // Tokenize
+    // Tokenize (or not)
     // =================
-    // TODO: handle input_ids input
     const int max_token = 2048;
     std::vector<int> input_ids(max_token);
-    llama_vocab vocab = llama_init_vocab(input.voc_path.c_str());
-    const int n = llama_tokenize(vocab, input.text.c_str(), input_ids.data(), input_ids.size(), true);
-    input_ids.resize(n);
+    if (input.input_ids.length() > 0) {
+        const int n = input.input_ids.length();
+        for (int i = 0; i < input.input_ids.length(); ++i) {
+            input_ids.at(i) = input.input_ids(0, 0, i);
+        }
+        input_ids.resize(n);
+    } else {
+        llama_vocab vocab = llama_init_vocab(input.voc_path.c_str());
+        const int n = llama_tokenize(vocab, input.text.c_str(), input_ids.data(), input_ids.size(), true);
+        input_ids.resize(n);
+    }
+
     // cf.
     // https://github.com/openvla/openvla/blob/0214a0c7c09942fb8e0ec3c3948c00e4e8949911/prismatic/extern/hf/modeling_prismatic.py#L510
     assert(input_ids.at(input_ids.size() - 1) == 29871);

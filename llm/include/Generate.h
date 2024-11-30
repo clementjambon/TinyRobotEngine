@@ -148,6 +148,7 @@ struct OpenVLAGenerate_Input {
     const struct opt_params generation_config;
     // TODO: support multiple inputs
     std::string text;
+    Matrix3D<int> input_ids;
     // std::string img_path;
     std::string img_embed_path;
     // DEBUG
@@ -161,6 +162,18 @@ struct OpenVLAGenerate_Input {
           llama_model_ptr(llama_model_ptr),
           voc_path(voc_path),
           text(text),
+          img_embed_path(img_embed_path),
+          generation_config(generation_config),
+          verbose(verbose) {}
+
+    OpenVLAGenerate_Input(const struct model_config model_config, std::string llama_param_path, void* llama_model_ptr,
+                          std::string voc_path, Matrix3D<int> input_ids, std::string img_embed_path,
+                          const struct opt_params generation_config, bool verbose = false)
+        : model_config(model_config),
+          llama_param_path(llama_param_path),
+          llama_model_ptr(llama_model_ptr),
+          voc_path(voc_path),
+          input_ids(input_ids),
           img_embed_path(img_embed_path),
           generation_config(generation_config),
           verbose(verbose) {}
