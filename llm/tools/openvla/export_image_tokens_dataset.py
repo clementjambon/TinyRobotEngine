@@ -92,6 +92,9 @@ def main(args):
             input_ids = batch["input_ids"].to(device)
             labels = batch["labels"]
 
+            action_gt = labels[:, -8:-1]
+            save_tensor(action_gt.cpu(), args.output, f"{batch_idx:04d}_action_gt", is_int=True)
+
             # Extract patch features
             patch_features = vla.vision_backbone(pixels_values)
 
