@@ -39,11 +39,14 @@ bool vit_image_preprocess(const vit_model_config *vit_config, void *vit_model_pt
 // Clip value between a and b
 static float clip(const float value, const float lower, const float upper);
 
-std::vector<float> OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
-                                   const struct vit_model_config featurizer_config, void *featurizer_model_ptr,
-                                   int model_type, std::string text, std::string img_path,
-                                   const struct opt_params generation_config, const struct model_config model_config,
-                                   std::string voc_path, bool interactive, bool voicechat) {
+std::vector<std::pair<int, float>> OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
+                                                   const struct vit_model_config featurizer_config,
+                                                   void *featurizer_model_ptr, int model_type, std::string text,
+                                                   std::string img_path, const struct opt_params generation_config,
+                                                   const struct model_config model_config, std::string voc_path,
+                                                   bool reset, bool interactive, bool voicechat) {
+    std::cout << "Received input: " << text << std::endl;
+
     std::vector<int> last_n_tokens(generation_config.n_ctx);
     std::fill(last_n_tokens.begin(), last_n_tokens.end(), 0);
     std::vector<int> embd;
@@ -75,11 +78,16 @@ std::vector<float> OpenVLAGenerate(std::string llama_param_path, void *llama_mod
     bool previous_two_hash = false;
     int break_cnt = 2;
     bool new_prompt = true;
+    // NO STATIC!
     static bool first_prompt = true;
     static bool has_past_kv = false;
+    if (reset) {
+        first_prompt = true;
+        has_past_kv = false;
+    }
     static std::vector<Matrix3D<float>> past_keys, past_values;
     int n_remain = generation_config.n_predict;
-    std::vector<float> output;
+    std::vector<std::pair<int, float>> output;
 
     while (n_remain != 0 && break_cnt) {
         std::vector<float> logits(generation_config.n_vocab);
@@ -87,6 +95,7 @@ std::vector<float> OpenVLAGenerate(std::string llama_param_path, void *llama_mod
         int sqlen = 1;
         if (new_prompt) {
             sqlen = input_ids.size();
+            // std::cout << "sqlen:" << sqlen << std::endl;
         }
         if (model_type == LLaVA_INT4 || model_type == VILA_INT4) {
             Int4LlamaForCausalLM *model = static_cast<Int4LlamaForCausalLM *>(llama_model_ptr);
@@ -120,56 +129,20 @@ std::vector<float> OpenVLAGenerate(std::string llama_param_path, void *llama_mod
             memcpy(logits.data(), &model_output.logits.m_data[(sqlen - 1) * generation_config.n_vocab],
                    generation_config.n_vocab * sizeof(float));
 
-        } else if (model_type == LLaVA_FP32 || model_type == VILA_FP32) {
+        } else {
             assert(false);
-            // WARNING: this doesn't work anymore... We only run inference at INT4 precision
-
-            // Fp32LlamaForCausalLM *model = static_cast<Fp32LlamaForCausalLM *>(llama_model_ptr);
-            // struct Fp32LlamaForCausalLM_output model_output;
-            // struct Fp32LlamaForCausalLM_input model_input;
-            // if (has_past_kv) {
-            //     Matrix3D<int> input_ids_mat(input_ids.data(), 1, 1, sqlen);
-            //     model_input = {input_ids_mat, past_keys, past_values};
-            // } else {
-            //     // auto image_embed = load_image(img_path, clip_model_ptr, is_vila);
-            //     // TODO(clem): de-hardcode this!
-            //     const int n_image_tokens = 256;
-            //     auto image_embed = load_image_embed(img_path, model_config.embed_dim);
-            //     sqlen = input_ids.size() + n_image_tokens;
-            //     int first_sqlen = input_ids.size();
-            //     Matrix3D<int> input_ids_mat(input_ids.data(), 1, 1, first_sqlen);
-            //     Matrix3D<float> image_embed_mat(image_embed->embed, 1, n_image_tokens, 4096);
-            //     model_input = {input_ids_mat, image_embed_mat};
-            // }
-            // if (!new_prompt) STATS_START("Inference latency");
-            // model_output = model->forward(model_input);
-            // if (!new_prompt) STATS_END("Inference latency");
-            // past_keys = model_output.past_keys;
-            // past_values = model_output.past_values;
-            // // memcpy model_ouput.logits[-1] to logits
-            // memcpy(logits.data(), &model_output.logits.m_data[(sqlen - 1) * generation_config.n_vocab],
-            //        generation_config.n_vocab * sizeof(float));
         }
+        // Make sure the KV cache is set after this!
         has_past_kv = true;
 
-        if (first_prompt && interactive) {
+        if (first_prompt) {
+            std::cout << "BROKE" << std::endl;
             break;
         }
 
+        // ============
         // Generate
-        const int n_ctx = generation_config.n_ctx;
-        const float temp = generation_config.temp;
-        const int32_t top_k = generation_config.top_k <= 0 ? generation_config.n_vocab : generation_config.top_k;
-        const float top_p = generation_config.top_p;
-        const float tfs_z = generation_config.tfs_z;
-        const float typical_p = generation_config.typical_p;
-        const int32_t repeat_last_n = generation_config.repeat_last_n < 0 ? n_ctx : generation_config.repeat_last_n;
-        const float repeat_penalty = generation_config.repeat_penalty;
-        const float alpha_presence = generation_config.presence_penalty;
-        const float alpha_frequency = generation_config.frequency_penalty;
-        const int mirostat = generation_config.mirostat;
-        const float mirostat_tau = generation_config.mirostat_tau;
-        const float mirostat_eta = generation_config.mirostat_eta;
+        // ============
         const int n_vocab = generation_config.n_vocab;
 
         std::vector<OPT_token_data> candidates;
@@ -180,44 +153,12 @@ std::vector<float> OpenVLAGenerate(std::string llama_param_path, void *llama_mod
 
         OPT_token_data_array candidates_p = {candidates.data(), candidates.size(), false};
 
-        // Apply penalties
-        auto last_n_repeat = std::min(std::min((int)last_n_tokens.size(), repeat_last_n), n_ctx);
-        sample_repetition_penalty(&candidates_p, last_n_tokens.data() + last_n_tokens.size() - last_n_repeat,
-                                  last_n_repeat, repeat_penalty);
-        sample_frequency_and_presence_penalties(&candidates_p,
-                                                last_n_tokens.data() + last_n_tokens.size() - last_n_repeat,
-                                                last_n_repeat, alpha_frequency, alpha_presence);
-
-        int id = 0;
-        if (temp <= 0) {
-            assert(false);
-            id = sample_token_greedy(&candidates_p);
-        } else {
-            if (mirostat == 1) {
-                assert(false);
-                static float mirostat_mu = 2.0f * mirostat_tau;
-                const int mirostat_m = 100;
-                sample_temperature(&candidates_p, temp);
-                id =
-                    sample_token_mirostat(n_vocab, &candidates_p, mirostat_tau, mirostat_eta, mirostat_m, &mirostat_mu);
-            } else if (mirostat == 2) {
-                assert(false);
-                static float mirostat_mu = 2.0f * mirostat_tau;
-                sample_temperature(&candidates_p, temp);
-                id = sample_token_mirostat_v2(&candidates_p, mirostat_tau, mirostat_eta, &mirostat_mu);
-            } else {
-                // NB: we do standard likelihood-based sampling
-                // Temperature sampling
-                // sample_top_k(&candidates_p, top_k, 1);
-                // sample_tail_free(&candidates_p, tfs_z, 1);
-                // sample_typical(&candidates_p, typical_p, 1);
-                // sample_top_p(&candidates_p, top_p, 1);
-                sample_temperature(&candidates_p, temp);
-                id = sample_token(&candidates_p);
-            }
-        }
+        // OpenVLA uses GREEDY_SEARCH
+        // = choose most-likely token at each step of sampling
+        int id = sample_token_greedy(&candidates_p);
 
         if (id == 2) {
+            std::cout << "EOSSSS" << std::endl;
             break_cnt--;
             continue;
         }  // eos
@@ -244,7 +185,7 @@ std::vector<float> OpenVLAGenerate(std::string llama_param_path, void *llama_mod
         input_ids = std::vector<int>{id};
 
         float action = token_id_to_action(id, action_idx, act_stats);
-        output.push_back(action);
+        output.push_back(std::make_pair(id, action));
 
         if (interactive && !skip) {
             // output += llama_id_to_token(vocab, id);

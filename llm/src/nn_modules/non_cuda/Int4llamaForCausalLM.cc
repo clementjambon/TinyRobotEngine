@@ -14,22 +14,26 @@ Int4LlamaForCausalLM::Int4LlamaForCausalLM(std::string param_path, const struct 
                                    param_path + "/lm_head");
 }
 
-struct Int4LlamaForCausalLM_output Int4LlamaForCausalLM::forward(std::string param_path, const struct Int4LlamaForCausalLM_input &input) {
+struct Int4LlamaForCausalLM_output Int4LlamaForCausalLM::forward(std::string param_path,
+                                                                 const struct Int4LlamaForCausalLM_input &input) {
     PROFILE_START(profile_name);
 
     struct Int4llamaDecoder_output decoder_output;
 
     // Call decoder
     if (input.has_past_keys_values) {
+        std::cout << "past" << std::endl;
         struct Int4llamaDecoder_input decoder_input = {input.input_ids, input.past_keys, input.past_values};
         decoder_output = this->decoder.forward(param_path + "/decoder", decoder_input);
     } else {
         struct Int4llamaDecoder_input decoder_input;
         if (input.is_llava) {
+            std::cout << "is_llava" << std::endl;
             decoder_input = {input.input_ids, input.image_embed};
             decoder_input.has_past_keys_values = false;
             decoder_input.is_llava = true;
         } else {
+            std::cout << "NOT llava" << std::endl;
             decoder_input = {input.input_ids};
             decoder_input.has_past_keys_values = false;
             decoder_input.is_llava = false;

@@ -27,7 +27,7 @@ void test_OpenVLAInference() {
     std::cout << n_ids << std::endl;
     // Input ids
     Matrix3D<int> gt_input_ids(mem_buf.get_intbuffer(n_ids), 1, 1, n_ids);
-    gt_info.load("embeds/OpenVLA_7B/0000_input_ids.bin");
+    gt_input_ids.load("embeds/OpenVLA_7B/0000_input_ids.bin");
     // Patch embeds
     Matrix3D<float> gt_patch_embeds(mem_buf.get_fpbuffer(256 * config.embed_dim), 1, 256, config.embed_dim);
     gt_patch_embeds.load("embeds/OpenVLA_7B/0000_projected_patch_embeddings.bin");
@@ -50,8 +50,11 @@ void test_OpenVLAInference() {
 
     model_output.logits.print_dims();
     gt_logits.print_dims();
-    std::cout << model_output.logits(0, 0, 0) << std::endl;
-    std::cout << gt_logits(0, 0, 0) << std::endl;
+    assert(model_output.logits.same_dims(gt_logits));
+    for (int z = 0; z < gt_logits.m_dim_z; ++z) {
+        std::cout << model_output.logits(0, gt_logits.m_dim_y - 1, z) << "; " << gt_logits(0, gt_logits.m_dim_y - 1, z)
+                  << std::endl;
+    }
 
     // if (!success)
     //     std::cout << "-------- Test of " << __func__ << ": Fail! -------- " << std::endl;

@@ -120,9 +120,9 @@ int main(int argc, char* argv[]) {
         llama_m_path = MODEL_PREFIX + llama_m_path;
 #endif
 
+        // GREEDY_SEARCH!
         struct opt_params generation_config;
-        generation_config.top_k = 0;
-        generation_config.temp = 1.0f;
+        generation_config.temp = 0.0f;
         generation_config.n_vocab = 32000;
         // NB: action dimension!!!!
         // That's 7 joints in the original implementation
@@ -130,50 +130,7 @@ int main(int argc, char* argv[]) {
 
         int prompt_iter = 0;
 
-        if (format_id == FP32) {
-            // // Fp32CLIPVisionTransformer clip_model =
-            // //     Fp32CLIPVisionTransformer(clip_m_path, get_opt_model_config(clip_model_id), false);
-            // Fp32LlamaForCausalLM llama_model = Fp32LlamaForCausalLM(llama_m_path,
-            // get_opt_model_config(llama_model_id));
-            // // Get input from the user
-            // while (true) {
-            //     std::string input;
-            //     if (prompt_iter == 1) {
-            //         // Set prompt color
-            //         set_print_yellow();
-            //         std::cout << "Finished!" << std::endl << std::endl;
-            //         // reset color
-            //         set_print_reset();
-            //     }
-            //     if (prompt_iter > 0) {
-            //         if (true) {
-            //             // Set prompt color
-            //             set_print_yellow();
-            //             std::cout << "USER: ";
-            //             // set user input color
-            //             set_print_red();
-            //             std::getline(std::cin, input);
-            //             // reset color
-            //             set_print_reset();
-            //         }
-            //         if (input == "quit" || input == "Quit" || input == "Quit." || input == "quit.") break;
-            //         std::cout << "ASSISTANT: " << std::endl;
-            //     }
-
-            //     if (prompt_iter == 0) {
-            //         input = "This is a chat between a user and an assistant.\n\n### USER: ";
-            //         prompt_iter += 1;
-            //     } else if (prompt_iter == 1) {
-            //         input = "\n" + input + "\n### ASSISTANT:";
-            //         prompt_iter += 1;
-            //     } else {
-            //         input = "### USER: " + input + "\n### ASSISTANT: \n";
-            //     }
-
-            //     // OpenVLAGenerate(llama_m_path, &llama_model, LLaVA_FP32, input, img_path, generation_config,
-            //     //                 get_opt_model_config(llama_model_id), "models/llama_vocab.bin", true, false);
-            // }
-        } else if (format_id == INT4) {
+        if (format_id == INT4) {
             const struct vit_model_config featurizer_config = vit_model_config();
             Fp32Dinov2VisionTransformer featurizer_model = Fp32Dinov2VisionTransformer(
                 llama_m_path + "/vision_backbone/featurizer", get_opt_model_config(model_config["DINO_v2"]));
@@ -220,9 +177,11 @@ int main(int argc, char* argv[]) {
                     input = "### USER: " + input_prefix + input + "\n### ASSISTANT: \n";
                 }
 
+                std::cout << "prompt iter" << prompt_iter << std::endl;
+
                 OpenVLAGenerate(llama_m_path, &llama_model, featurizer_config, &featurizer_model, LLaVA_INT4, input,
                                 img_path, generation_config, get_opt_model_config(llama_model_id),
-                                "models/llama_vocab.bin", true, false);
+                                "models/llama_vocab.bin", (prompt_iter == 1), (prompt_iter == 1), false);
 
                 // Set prompt color
                 set_print_yellow();
@@ -233,7 +192,7 @@ int main(int argc, char* argv[]) {
             }
         } else {
             std::cout << std::endl;
-            std::cerr << "At this time, we only support FP32 and INT4 for LLaVA_7B." << std::endl;
+            std::cerr << "At this time, we only support INT4 for OpenVLA_7B." << std::endl;
         }
     }
 };
