@@ -118,7 +118,9 @@ struct OpenVLAGenerate_Output OpenVLAGenerate(struct OpenVLAGenerate_Input &inpu
             // auto image_embed = load_image(img_path, &featurizer_config, featurizer_model_ptr);
             auto end = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed = end - start;
-            std::cout << "Image loading time: " << elapsed.count() << " s\n";
+            if (input.verbose) {
+                std::cout << "Image loading time: " << elapsed.count() << " s\n";
+            }
             // TODO(clem): de-hardcode this!
             const int n_image_tokens = 256;
             sqlen = input_ids.size() + n_image_tokens;

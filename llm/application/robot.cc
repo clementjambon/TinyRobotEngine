@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
 
                 OpenVLAGenerate_Input generation_input(llama_config, llama_m_path, &llama_model,
                                                        "models/llama_vocab.bin", input, img_path, generation_config,
-                                                       true);
+                                                       false);
 
                 OpenVLAGenerate_Output output = OpenVLAGenerate(generation_input);
 
