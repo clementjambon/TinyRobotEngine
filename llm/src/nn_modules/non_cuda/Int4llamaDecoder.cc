@@ -70,7 +70,7 @@ struct Int4llamaDecoder_output Int4llamaDecoder::forward(std::string param_path,
     PROFILE_START(profile_name);
     int batch_size = input.input_ids.m_dim_x, past_key_values_length = 0;
     int sqlen;
-    if (input.is_llava) {
+    if (input.is_llava || input.is_openvla) {
         sqlen = input.input_ids.m_dim_z + input.image_embed.m_dim_y;
     } else {
         sqlen = input.input_ids.m_dim_z;
@@ -79,18 +79,34 @@ struct Int4llamaDecoder_output Int4llamaDecoder::forward(std::string param_path,
     // Input token -> Embedding
     Matrix3D<float> inputs_embeds(inputs_embeds_buf, 1, sqlen, this->embed_dim);
 
-    if (input.is_llava) {
+    if (input.is_openvla) {
+        // OpenVLA concatenates bos before the image embeddings
+        int first_input_ids_size = input.input_ids.m_dim_z;
+        int image_embed_size = input.image_embed.m_dim_y;
+
+        // Encode
+        // std::cout << "first_input_ids_size: " << first_input_ids_size << std::endl;
+        // std::cout << "image_embed_size: " << image_embed_size << std::endl;
+        Matrix3D<float> first_input_embeds(first_input_ids_buf, 1, first_input_ids_size, this->embed_dim);
+        this->embed_tokens.forward(input.input_ids, first_input_embeds);
+
+        Matrix3D<float> image_embeds(image_embed_buf, 1, image_embed_size, this->embed_dim);
+        memcpy(image_embed_buf, input.image_embed.m_data, image_embed_size * this->embed_dim * sizeof(float));
+
+        // 0:1 bos
+        memcpy(inputs_embeds_buf, first_input_ids_buf, 1 * this->embed_dim * sizeof(float));
+        // 1:256+1 image
+        memcpy(inputs_embeds_buf + 1 * this->embed_dim, image_embed_buf,
+               image_embed_size * this->embed_dim * sizeof(float));
+        // 256+1:rest input ids
+        memcpy(inputs_embeds_buf + (image_embed_size + 1) * this->embed_dim, first_input_ids_buf + 1 * this->embed_dim,
+               (first_input_ids_size - 1) * this->embed_dim * sizeof(float));
+
+    } else if (input.is_llava) {
         int first_input_ids_size = input.input_ids.m_dim_z;
         int image_embed_size = input.image_embed.m_dim_y;
         Matrix3D<float> first_input_embeds(first_input_ids_buf, 1, first_input_ids_size, this->embed_dim);
         Matrix3D<float> image_embeds(image_embed_buf, 1, image_embed_size, this->embed_dim);
-
-        this->embed_tokens.forward(input.input_ids, first_input_embeds);
-        memcpy(image_embed_buf, input.image_embed.m_data, image_embed_size * this->embed_dim * sizeof(float));
-
-        memcpy(inputs_embeds_buf, first_input_ids_buf, first_input_ids_size * this->embed_dim * sizeof(float));
-        memcpy(inputs_embeds_buf + first_input_ids_size * this->embed_dim, image_embed_buf,
-               image_embed_size * this->embed_dim * sizeof(float));
     } else {
         this->embed_tokens.forward(input.input_ids, inputs_embeds);
     }

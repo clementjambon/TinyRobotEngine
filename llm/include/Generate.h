@@ -135,12 +135,44 @@ std::string LLaMA3Generate(std::string param_path, void* model, int model_type, 
                            const struct opt_params generation_config, std::string voc_path, bool interactive,
                            bool voicechat);
 
-std::vector<std::pair<int, float>> OpenVLAGenerate(std::string llama_param_path, void* llama_model_ptr,
-                                                   const struct vit_model_config featurizer_config,
-                                                   void* featurizer_model_ptr, int model_type, std::string text,
-                                                   std::string img_path, const struct opt_params generation_config,
-                                                   const struct model_config model_config, std::string voc_path,
-                                                   bool reset = false, bool interactive = false,
-                                                   bool voicechat = false);
+// =================
+// OpenVLA
+// =================
+
+struct OpenVLAGenerate_Input {
+    // LLAMA
+    const struct model_config model_config;
+    std::string llama_param_path;
+    void* llama_model_ptr;
+    std::string voc_path;
+    const struct opt_params generation_config;
+    // TODO: support multiple inputs
+    std::string text;
+    // std::string img_path;
+    std::string img_embed_path;
+    // DEBUG
+    bool verbose;
+
+    OpenVLAGenerate_Input(const struct model_config model_config, std::string llama_param_path, void* llama_model_ptr,
+                          std::string voc_path, std::string text, std::string img_embed_path,
+                          const struct opt_params generation_config, bool verbose = false)
+        : model_config(model_config),
+          llama_param_path(llama_param_path),
+          llama_model_ptr(llama_model_ptr),
+          voc_path(voc_path),
+          text(text),
+          img_embed_path(img_embed_path),
+          generation_config(generation_config),
+          verbose(verbose) {}
+};
+
+struct OpenVLAGenerate_Output {
+    std::vector<int> generated_ids;
+    std::vector<float> generated_actions;
+};
+
+void print_openvla_output(struct OpenVLAGenerate_Output output);
+
+struct OpenVLAGenerate_Output OpenVLAGenerate(struct OpenVLAGenerate_Input& input);
 
 #endif  // GENERATE_H

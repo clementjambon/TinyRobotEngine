@@ -21,6 +21,7 @@ struct Int4llamaDecoder_input {
     Matrix3D<int> second_input_ids;
     bool has_past_keys_values;
     bool is_llava;
+    bool is_openvla;
 #ifdef QM_CUDA
     std::vector<Matrix3D<float16_t>> past_keys, past_values;
 #else
@@ -28,8 +29,8 @@ struct Int4llamaDecoder_input {
 #endif
 
     Int4llamaDecoder_input() {}
-    Int4llamaDecoder_input(Matrix3D<int> input_ids_) : input_ids(input_ids_) { 
-        has_past_keys_values = false; 
+    Int4llamaDecoder_input(Matrix3D<int> input_ids_) : input_ids(input_ids_) {
+        has_past_keys_values = false;
         is_llava = false;
     }
 #ifdef QM_CUDA
@@ -53,12 +54,23 @@ struct Int4llamaDecoder_input {
         has_past_keys_values = false;
         is_llava = true;
     }
+    Int4llamaDecoder_input(Matrix3D<int> input_ids_, Matrix3D<float> image_embed_, bool is_openvla_)
+        : input_ids(input_ids_), image_embed(image_embed_), is_openvla(is_openvla_) {
+        has_past_keys_values = false;
+        is_llava = false;
+    }
+    Int4llamaDecoder_input(Matrix3D<int> input_ids_, std::vector<Matrix3D<float>> past_keys_,
+                           std::vector<Matrix3D<float>> past_values_, bool is_openvla_)
+        : input_ids(input_ids_), past_keys(past_keys_), past_values(past_values_), is_openvla(is_openvla_) {
+        has_past_keys_values = true;
+        is_llava = false;
+    }
 };
 
 class Int4llamaDecoder {
    public:
     Int4llamaDecoder(std::string param_path, const struct model_config config);
-    Int4llamaDecoder(){};
+    Int4llamaDecoder() {};
     Matrix3D<float> prepare_decoder_attention_mask(int length, int past_length);
     struct Int4llamaDecoder_output forward(std::string param_path, const struct Int4llamaDecoder_input& input);
     int voc_size, embed_dim, padding_idx, hidden_dim, num_heads;

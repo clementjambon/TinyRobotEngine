@@ -39,111 +39,98 @@ bool vit_image_preprocess(const vit_model_config *vit_config, void *vit_model_pt
 // Clip value between a and b
 static float clip(const float value, const float lower, const float upper);
 
-std::vector<std::pair<int, float>> OpenVLAGenerate(std::string llama_param_path, void *llama_model_ptr,
-                                                   const struct vit_model_config featurizer_config,
-                                                   void *featurizer_model_ptr, int model_type, std::string text,
-                                                   std::string img_path, const struct opt_params generation_config,
-                                                   const struct model_config model_config, std::string voc_path,
-                                                   bool reset, bool interactive, bool voicechat) {
-    std::cout << "Received input: " << text << std::endl;
+void print_openvla_output(struct OpenVLAGenerate_Output output) {
+    for (int i = 0; i < output.generated_ids.size(); ++i) {
+        std::cout << "[" << i << "] " << output.generated_ids.at(i) << " ---> " << output.generated_actions.at(i)
+                  << std::endl;
+    };
+}
 
-    std::vector<int> last_n_tokens(generation_config.n_ctx);
-    std::fill(last_n_tokens.begin(), last_n_tokens.end(), 0);
-    std::vector<int> embd;
-    std::vector<int> generate_ids;
+struct OpenVLAGenerate_Output OpenVLAGenerate(struct OpenVLAGenerate_Input &input) {
+    std::cout << "Received text: " << input.text << std::endl;
 
-    // Create the detokenizer
+    std::vector<int> generated_ids;
+    std::vector<float> generated_actions;
+
+    // Create the Action Detokenizer
     const action_stats *act_stats = new action_stats();
 
-    // Tokenize first-part text
+    // =================
+    // Tokenize
+    // =================
+    // TODO: handle input_ids input
     const int max_token = 2048;
     std::vector<int> input_ids(max_token);
-    llama_vocab vocab = llama_init_vocab(voc_path.c_str());
-    const int n = llama_tokenize(vocab, text.c_str(), input_ids.data(), input_ids.size(), true);
+    llama_vocab vocab = llama_init_vocab(input.voc_path.c_str());
+    const int n = llama_tokenize(vocab, input.text.c_str(), input_ids.data(), input_ids.size(), true);
     input_ids.resize(n);
-
-    int n_consumed = 0;
-    while ((int)input_ids.size() > n_consumed) {
-        embd.push_back(input_ids[n_consumed]);
-        last_n_tokens.erase(last_n_tokens.begin());
-        last_n_tokens.push_back(input_ids[n_consumed]);
-        ++n_consumed;
-
-        if ((int)embd.size() >= generation_config.n_batch) {
-            break;
+    // cf.
+    // https://github.com/openvla/openvla/blob/0214a0c7c09942fb8e0ec3c3948c00e4e8949911/prismatic/extern/hf/modeling_prismatic.py#L510
+    assert(input_ids.at(input_ids.size() - 1) == 29871);
+    if (input.verbose) {
+        std::cout << "Input IDs(" << input_ids.size() << "): ";
+        for (int i = 0; i < input_ids.size(); ++i) {
+            std::cout << input_ids.at(i) << "; ";
         }
+        std::cout << std::endl;
     }
+
+    // =================
+    // Iterate
+    // =================
 
     int action_idx = 0;
-    bool previous_two_hash = false;
     int break_cnt = 2;
-    bool new_prompt = true;
-    // NO STATIC!
-    static bool first_prompt = true;
-    static bool has_past_kv = false;
-    if (reset) {
-        first_prompt = true;
-        has_past_kv = false;
-    }
-    static std::vector<Matrix3D<float>> past_keys, past_values;
-    int n_remain = generation_config.n_predict;
-    std::vector<std::pair<int, float>> output;
+    bool has_past_kv = false;
+    std::vector<Matrix3D<float>> past_keys, past_values;
+    int n_remain = input.generation_config.n_predict;
 
     while (n_remain != 0 && break_cnt) {
-        std::vector<float> logits(generation_config.n_vocab);
+        std::vector<float> logits(input.generation_config.n_vocab);
 
+        // This is the number of logits we wish to sample from
+        // NB: the first time, we have to pass everyone!
         int sqlen = 1;
-        if (new_prompt) {
-            sqlen = input_ids.size();
-            // std::cout << "sqlen:" << sqlen << std::endl;
-        }
-        if (model_type == LLaVA_INT4 || model_type == VILA_INT4) {
-            Int4LlamaForCausalLM *model = static_cast<Int4LlamaForCausalLM *>(llama_model_ptr);
-            struct Int4LlamaForCausalLM_output model_output;
-            struct Int4LlamaForCausalLM_input model_input;
-            if (has_past_kv) {
-                Matrix3D<int> input_ids_mat(input_ids.data(), 1, 1, sqlen);
-                model_input = {input_ids_mat, past_keys, past_values};
-            } else {
-                // Load and preprocess image
-                auto start = std::chrono::high_resolution_clock::now();
-                auto image_embed = load_image_embed(img_path, model_config.embed_dim);
-                // auto image_embed = load_image(img_path, &featurizer_config, featurizer_model_ptr);
-                auto end = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<double> elapsed = end - start;
-                std::cout << "Image loading time: " << elapsed.count() << " s\n";
-                // TODO(clem): de-hardcode this!
-                const int n_image_tokens = 256;
-                sqlen = input_ids.size() + n_image_tokens;
-                int first_sqlen = input_ids.size();
-                Matrix3D<int> input_ids_mat(input_ids.data(), 1, 1, first_sqlen);
-                Matrix3D<float> image_embed_mat(image_embed->embed, 1, n_image_tokens, 4096);
-                model_input = {input_ids_mat, image_embed_mat};
-            }
-            if (!new_prompt) STATS_START("Inference latency");
-            model_output = model->forward(llama_param_path, model_input);
-            if (!new_prompt) STATS_END("Inference latency");
-            past_keys = model_output.past_keys;
-            past_values = model_output.past_values;
-            // memcpy model_ouput.logits[-1] to logits
-            memcpy(logits.data(), &model_output.logits.m_data[(sqlen - 1) * generation_config.n_vocab],
-                   generation_config.n_vocab * sizeof(float));
 
+        Int4LlamaForCausalLM *model = static_cast<Int4LlamaForCausalLM *>(input.llama_model_ptr);
+        struct Int4LlamaForCausalLM_output model_output;
+        struct Int4LlamaForCausalLM_input model_input;
+        if (has_past_kv) {
+            Matrix3D<int> input_ids_mat(input_ids.data(), 1, 1, sqlen);
+            model_input = Int4LlamaForCausalLM_input(input_ids_mat, past_keys, past_values, true);
         } else {
-            assert(false);
+            // Load and preprocess image or embedding
+            auto start = std::chrono::high_resolution_clock::now();
+            auto image_embed = load_image_embed(input.img_embed_path, input.model_config.embed_dim);
+            // auto image_embed = load_image(img_path, &featurizer_config, featurizer_model_ptr);
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end - start;
+            std::cout << "Image loading time: " << elapsed.count() << " s\n";
+            // TODO(clem): de-hardcode this!
+            const int n_image_tokens = 256;
+            sqlen = input_ids.size() + n_image_tokens;
+            int first_sqlen = input_ids.size();
+            Matrix3D<int> input_ids_mat(input_ids.data(), 1, 1, first_sqlen);
+            Matrix3D<float> image_embed_mat(image_embed->embed, 1, n_image_tokens, 4096);
+            model_input = {input_ids_mat, image_embed_mat, true};
         }
-        // Make sure the KV cache is set after this!
+        // WARNING: this will also count prefilling!
+        STATS_START("Inference latency");
+        model_output = model->forward(input.llama_param_path, model_input);
+        STATS_END("Inference latency");
+        past_keys = model_output.past_keys;
+        past_values = model_output.past_values;
+        // memcpy model_ouput.logits[-1] to logits
+        memcpy(logits.data(), &model_output.logits.m_data[(sqlen - 1) * input.generation_config.n_vocab],
+               input.generation_config.n_vocab * sizeof(float));
+
+        // Make sure the KV cache is set after this (always!
         has_past_kv = true;
 
-        if (first_prompt) {
-            std::cout << "BROKE" << std::endl;
-            break;
-        }
-
-        // ============
-        // Generate
-        // ============
-        const int n_vocab = generation_config.n_vocab;
+        // ================
+        // Sample (GREEDY)
+        // ================
+        const int n_vocab = input.generation_config.n_vocab;
 
         std::vector<OPT_token_data> candidates;
         candidates.reserve(n_vocab);
@@ -157,6 +144,10 @@ std::vector<std::pair<int, float>> OpenVLAGenerate(std::string llama_param_path,
         // = choose most-likely token at each step of sampling
         int id = sample_token_greedy(&candidates_p);
 
+        // ================
+        // Process samples
+        // ================
+
         if (id == 2) {
             std::cout << "EOSSSS" << std::endl;
             break_cnt--;
@@ -166,56 +157,18 @@ std::vector<std::pair<int, float>> OpenVLAGenerate(std::string llama_param_path,
             continue;
         break_cnt = 2;
 
-        bool skip = false;
-        if (id == 2277 && !previous_two_hash) {
-            previous_two_hash = true;
-            skip = true;
-        } else if (previous_two_hash && id == 29937) {  // token = #
-            break_cnt = 0;
-            skip = true;
-        } else {
-            if (previous_two_hash) std::cout << "##" << std::endl;
-            previous_two_hash = false;
-        }
-
-        last_n_tokens.erase(last_n_tokens.begin());
-        last_n_tokens.push_back(id);
-        embd.push_back(id);
-        generate_ids.push_back(id);
+        generated_ids.push_back(id);
+        // The new input id is just the new token
         input_ids = std::vector<int>{id};
 
         float action = token_id_to_action(id, action_idx, act_stats);
-        output.push_back(std::make_pair(id, action));
+        generated_actions.push_back(action);
 
-        if (interactive && !skip) {
-            // output += llama_id_to_token(vocab, id);
-            // std::cout << llama_id_to_token(vocab, id) << std::flush;
-
-            std::string action_str = std::to_string(action);
-            std::cout << action_idx << ":" << action_str;
-            if (!act_stats->mask[action_idx]) {
-                std::cout << " (masked)";
-            }
-            std::cout << std::endl;
-        }
-
-        new_prompt = false;
         --n_remain;
         ++action_idx;
     }
 
-    if (interactive && !first_prompt) {
-        std::cout << std::endl;
-    }
-    first_prompt = false;
-
-    // // Set prompt color
-    // set_print_yellow();
-    // Profiler::getInstance().report_internal();
-    // Profiler::getInstance().reset();
-    // // Reset color
-    // set_print_reset();
-
+    OpenVLAGenerate_Output output{generated_ids, generated_actions};
     return output;
 }
 

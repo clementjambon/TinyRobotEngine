@@ -14,6 +14,7 @@ struct Int4LlamaForCausalLM_input {
     Matrix3D<int> second_input_ids;
     bool has_past_keys_values;
     bool is_llava;
+    bool is_openvla = false;
 #ifdef QM_CUDA
     std::vector<Matrix3D<float16_t>> past_keys, past_values;
 #else
@@ -21,8 +22,8 @@ struct Int4LlamaForCausalLM_input {
 #endif
 
     Int4LlamaForCausalLM_input() {}
-    Int4LlamaForCausalLM_input(Matrix3D<int> input_ids_) : input_ids(input_ids_) { 
-        has_past_keys_values = false; 
+    Int4LlamaForCausalLM_input(Matrix3D<int> input_ids_) : input_ids(input_ids_) {
+        has_past_keys_values = false;
         is_llava = false;
     }
 #ifdef QM_CUDA
@@ -46,12 +47,23 @@ struct Int4LlamaForCausalLM_input {
         has_past_keys_values = false;
         is_llava = true;
     }
+    Int4LlamaForCausalLM_input(Matrix3D<int> input_ids_, Matrix3D<float> image_embed_, bool is_openvla_)
+        : input_ids(input_ids_), image_embed(image_embed_), is_openvla(is_openvla_) {
+        has_past_keys_values = false;
+        is_llava = false;
+    }
+    Int4LlamaForCausalLM_input(Matrix3D<int> input_ids_, std::vector<Matrix3D<float>> past_keys_,
+                               std::vector<Matrix3D<float>> past_values_, bool is_openvla_)
+        : input_ids(input_ids_), past_keys(past_keys_), past_values(past_values_), is_openvla(is_openvla_) {
+        has_past_keys_values = true;
+        is_llava = false;
+    }
 };
 
 class Int4LlamaForCausalLM {
    public:
     Int4LlamaForCausalLM(std::string param_path, const struct model_config config);
-    Int4LlamaForCausalLM(){};
+    Int4LlamaForCausalLM() {};
     struct Int4LlamaForCausalLM_output forward(std::string param_path, const struct Int4LlamaForCausalLM_input& input);
     float* logits_output = nullptr;
 #ifdef QM_CUDA

@@ -19,14 +19,32 @@ int main() {
     std::string voc_path = "models/llama_vocab.bin";
 
     // ===============
+    // Load model(s)
+    // ===============
+
+    // Load model
+    std::string llama_param_path = "INT4/models/OpenVLA_7B";
+    const struct model_config llama_config = get_opt_model_config(OpenVLA_7B);
+    Int4LlamaForCausalLM llama_model = Int4LlamaForCausalLM(llama_param_path, llama_config);
+
+    // Generation config
+    struct opt_params generation_config;
+    generation_config.n_vocab = 32000;
+    // NB: action dimension!!!!
+    // That's 7 joints in the original implementation
+    generation_config.n_predict = 7;
+
+    // Not used
+    struct vit_model_config featurizer_config;
+
+    // ===============
     // Load data
     // ===============
     int sample_idx = 0;
 
-    std::string llama_param_path = "INT4/models/OpenVLA_7B";
     std::string info_path = format_number("embeds/OpenVLA_7B/%04d_info.bin", sample_idx);
     std::string input_ids_path = format_number("embeds/OpenVLA_7B/%04d_input_ids.bin", sample_idx);
-    std::string img_path = format_number("embeds/OpenVLA_7B/%04d_projected_patch_embeddings.bin", sample_idx);
+    std::string img_embed_path = format_number("embeds/OpenVLA_7B/%04d_projected_patch_embeddings.bin", sample_idx);
     std::string action_path = format_number("embeds/OpenVLA_7B/%04d_action_gt.bin", sample_idx);
 
     // Load Input ids
@@ -58,44 +76,17 @@ int main() {
     std::cout << std::endl;
 
     // ===============
-    // Load model(s)
-    // ===============
-
-    // Load model
-    struct model_config llama_config = get_opt_model_config(OpenVLA_7B);
-    Int4LlamaForCausalLM llama_model = Int4LlamaForCausalLM(llama_param_path, llama_config);
-
-    // Generation config
-    struct opt_params generation_config;
-    generation_config.top_k = 0;
-    generation_config.temp = 0.0f;
-    generation_config.n_vocab = 32000;
-    // NB: action dimension!!!!
-    // That's 7 joints in the original implementation
-    generation_config.n_predict = 7;
-
-    // Not used
-    struct vit_model_config featurizer_config;
-
-    // ===============
     // Inference
     // ===============
 
     for (int i = 0; i < 10; ++i) {
-        // First call (prefill) = reset
-        std::vector<std::pair<int, float>> output =
-            OpenVLAGenerate(llama_param_path, &llama_model, featurizer_config, NULL, LLaVA_INT4,
-                            "This is a chat between a user and an assistant.\n\n### USER: ", img_path,
-                            generation_config, llama_config, voc_path, true);
-        // Second call
-        output = OpenVLAGenerate(llama_param_path, &llama_model, featurizer_config, NULL, LLaVA_INT4,
-                                 "What action should the robot take to move the red block?", img_path,
-                                 generation_config, llama_config, voc_path, false);
+        OpenVLAGenerate_Input input(llama_config, llama_param_path, &llama_model, voc_path,
+                                    "In: What action should the robot take to pick up the blue fork and place it on "
+                                    "the left of the pot?\nOut: ",
+                                    img_embed_path, generation_config);
+        OpenVLAGenerate_Output output = OpenVLAGenerate(input);
 
-        std::cout << "generated:" << output.size() << std::endl;
-        for (auto it = output.begin(); it != output.end(); ++it) {
-            std::cout << (*it).first << ";" << (*it).second << std::endl;
-        };
+        print_openvla_output(output);
     }
 
     // Set prompt color

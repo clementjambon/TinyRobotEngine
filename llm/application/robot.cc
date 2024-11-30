@@ -121,8 +121,8 @@ int main(int argc, char* argv[]) {
 #endif
 
         // GREEDY_SEARCH!
+        // Generation config
         struct opt_params generation_config;
-        generation_config.temp = 0.0f;
         generation_config.n_vocab = 32000;
         // NB: action dimension!!!!
         // That's 7 joints in the original implementation
@@ -131,57 +131,40 @@ int main(int argc, char* argv[]) {
         int prompt_iter = 0;
 
         if (format_id == INT4) {
-            const struct vit_model_config featurizer_config = vit_model_config();
-            Fp32Dinov2VisionTransformer featurizer_model = Fp32Dinov2VisionTransformer(
-                llama_m_path + "/vision_backbone/featurizer", get_opt_model_config(model_config["DINO_v2"]));
+            // const struct vit_model_config featurizer_config = vit_model_config();
+            // Fp32Dinov2VisionTransformer featurizer_model = Fp32Dinov2VisionTransformer(
+            //     llama_m_path + "/vision_backbone/featurizer", get_opt_model_config(model_config["DINO_v2"]));
             // Fp32Dinov2VisionTransformer fused_featurizer_model = Fp32Dinov2VisionTransformer(
             //     llama_m_path + "/vision_backbone/fused_featurizer", get_opt_model_config(model_config["SIGLIP"]));
 
             llama_m_path = "INT4/" + llama_m_path;
-            Int4LlamaForCausalLM llama_model = Int4LlamaForCausalLM(llama_m_path, get_opt_model_config(llama_model_id));
+            const struct model_config llama_config = get_opt_model_config(OpenVLA_7B);
+            Int4LlamaForCausalLM llama_model = Int4LlamaForCausalLM(llama_m_path, llama_config);
 
             // Get input from the user
             while (true) {
-                if (prompt_iter == 1) {
-                    // Set prompt color
-                    set_print_yellow();
-                    std::cout << "Finished!" << std::endl << std::endl;
-                    // reset color
-                    set_print_reset();
-                }
                 std::string input;
-                std::string input_prefix = "What action should the robot take to ";
-                if (prompt_iter > 0) {
-                    if (true) {
-                        // Set prompt color
-                        set_print_yellow();
-                        std::cout << "USER: ";
-                        // set user input color
-                        set_print_red();
-                        std::cout << input_prefix;
-                        std::getline(std::cin, input);
-                        // reset color
-                        set_print_reset();
-                    }
-                    if (input == "quit" || input == "Quit" || input == "Quit." || input == "quit.") break;
-                    std::cout << "ASSISTANT: " << std::endl;
-                }
+                std::string input_prefix = "In: What action should the robot take to ";
+                // Set prompt color
+                set_print_yellow();
+                std::cout << std::endl;
+                // std::cout << "USER: ";
+                // set user input color
+                set_print_red();
+                std::cout << input_prefix;
+                std::getline(std::cin, input);
+                // Don't forget to append this
+                input += "\nOut: ";
+                // reset color
+                set_print_reset();
 
-                if (prompt_iter == 0) {
-                    input = "This is a chat between a user and an assistant.\n\n### USER: ";
-                    prompt_iter += 1;
-                } else if (prompt_iter == 1) {
-                    input = "\n" + input_prefix + input + "\n### ASSISTANT:";
-                    prompt_iter += 1;
-                } else {
-                    input = "### USER: " + input_prefix + input + "\n### ASSISTANT: \n";
-                }
+                OpenVLAGenerate_Input generation_input(llama_config, llama_m_path, &llama_model,
+                                                       "models/llama_vocab.bin", input, img_path, generation_config,
+                                                       true);
 
-                std::cout << "prompt iter" << prompt_iter << std::endl;
+                OpenVLAGenerate_Output output = OpenVLAGenerate(generation_input);
 
-                OpenVLAGenerate(llama_m_path, &llama_model, featurizer_config, &featurizer_model, LLaVA_INT4, input,
-                                img_path, generation_config, get_opt_model_config(llama_model_id),
-                                "models/llama_vocab.bin", (prompt_iter == 1), (prompt_iter == 1), false);
+                print_openvla_output(output);
 
                 // Set prompt color
                 set_print_yellow();

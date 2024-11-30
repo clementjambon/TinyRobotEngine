@@ -22,18 +22,28 @@ struct Int4LlamaForCausalLM_output Int4LlamaForCausalLM::forward(std::string par
 
     // Call decoder
     if (input.has_past_keys_values) {
-        std::cout << "past" << std::endl;
-        struct Int4llamaDecoder_input decoder_input = {input.input_ids, input.past_keys, input.past_values};
-        decoder_output = this->decoder.forward(param_path + "/decoder", decoder_input);
+        if (input.is_openvla) {
+            struct Int4llamaDecoder_input decoder_input = {input.input_ids, input.past_keys, input.past_values, false};
+            decoder_output = this->decoder.forward(param_path + "/decoder", decoder_input);
+        } else {
+            struct Int4llamaDecoder_input decoder_input = {input.input_ids, input.past_keys, input.past_values};
+            decoder_output = this->decoder.forward(param_path + "/decoder", decoder_input);
+        }
+
     } else {
         struct Int4llamaDecoder_input decoder_input;
-        if (input.is_llava) {
-            std::cout << "is_llava" << std::endl;
+        if (input.is_openvla) {
+            // std::cout << "is_openvla (no cache)" << std::endl;
+            decoder_input = {input.input_ids, input.image_embed, true};
+            decoder_input.has_past_keys_values = false;
+            decoder_input.is_llava = false;
+        } else if (input.is_llava) {
+            // std::cout << "is_llava" << std::endl;
             decoder_input = {input.input_ids, input.image_embed};
             decoder_input.has_past_keys_values = false;
             decoder_input.is_llava = true;
         } else {
-            std::cout << "NOT llava" << std::endl;
+            // std::cout << "NOT llava" << std::endl;
             decoder_input = {input.input_ids};
             decoder_input.has_past_keys_values = false;
             decoder_input.is_llava = false;
@@ -43,7 +53,10 @@ struct Int4LlamaForCausalLM_output Int4LlamaForCausalLM::forward(std::string par
 
     // Get logits
     int sqlen;
-    if (input.is_llava) {
+    if (input.is_openvla) {
+        assert(!input.has_past_keys_values || input.image_embed.m_dim_y == 0);
+        sqlen = input.input_ids.m_dim_z + input.image_embed.m_dim_y;
+    } else if (input.is_llava) {
         sqlen = input.input_ids.m_dim_z + input.image_embed.m_dim_y + input.second_input_ids.m_dim_z;
         sqlen = input.input_ids.m_dim_z + input.image_embed.m_dim_y;
     } else {
