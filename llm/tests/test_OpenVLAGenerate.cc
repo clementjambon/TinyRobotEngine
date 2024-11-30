@@ -8,13 +8,6 @@
 int NUM_THREAD = 8;
 // #define VERBOSE
 
-std::string format_number(std::string placeholder, int value) {
-    char buff[256];
-    snprintf(buff, sizeof(buff), placeholder.c_str(), value);
-    std::string buffAsStdStr = buff;
-    return buffAsStdStr;
-}
-
 int main() {
     MemoryAllocator mem_buf;
     std::string voc_path = "models/llama_vocab.bin";

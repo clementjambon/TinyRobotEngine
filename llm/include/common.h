@@ -236,6 +236,13 @@ class Matrix4D {
     }
 };
 
+std::string format_number(std::string placeholder, int value) {
+    char buff[256];
+    snprintf(buff, sizeof(buff), placeholder.c_str(), value);
+    std::string buffAsStdStr = buff;
+    return buffAsStdStr;
+}
+
 static inline void debug_info(std::string s) {
 #ifdef DEBUG
     std::cout << s << std::endl;

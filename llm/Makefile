@@ -13,7 +13,7 @@ ROBOTNAME = robot
 CXXFLAGS += $(DEFINE)
 
 # Executable and source files
-TEST_TARGET_GENERAL = test_Int8OPTAttention test_Int8OPTDecoderLayer test_Int8OPTDecoder test_OPTForCausalLM test_OPTTokenizer test_LLaMATokenizer test_OPTGenerate test_Fp32llamaAttention test_Fp32llamaDecoderLayer test_Fp32llamaDecoder test_Fp32llamaForCausalLM test_Fp32OPTAttention test_Fp32OPTDecoderLayer test_Fp32OPTDecoder test_Fp32OPTForCausalLM test_Fp32Dinov2VisionTransformer test_OpenVLAInference test_OpenVLAGenerate
+TEST_TARGET_GENERAL = test_Int8OPTAttention test_Int8OPTDecoderLayer test_Int8OPTDecoder test_OPTForCausalLM test_OPTTokenizer test_LLaMATokenizer test_OPTGenerate test_Fp32llamaAttention test_Fp32llamaDecoderLayer test_Fp32llamaDecoder test_Fp32llamaForCausalLM test_Fp32OPTAttention test_Fp32OPTDecoderLayer test_Fp32OPTDecoder test_Fp32OPTForCausalLM test_Fp32Dinov2VisionTransformer test_OpenVLAGenerate
 TEST_TARGET_IF_CUDA = test_ops test_Int4llamaAttention test_Int4llamaDecoderLayer test_Int4llamaDecoder test_Int4llamaForCausalLM
 PROFILE_TARGET = profile_Fp32llamaForCausalLM profile_Int4llamaForCausalLM profile_OPTForCausalLM profile_ops profile_OpenVLAGenerate
 CHAT_TARGET = chat
@@ -102,7 +102,7 @@ else ifeq ($(shell uname -m),aarch64)
 		CXXFLAGS += -march=native -DUSE_INT8_INT4_PRODUCT -DQM_ARM -fPIC
 	endif
 else ifeq ($(shell uname -p),arm)
-	CXX = /opt/homebrew/opt/llvm/bin/clang++
+	CXX = /opt/homebrew/opt/llvm/bin/clang++ 
 	LIB += -L/opt/homebrew/opt/boost/lib
 	# For ARM A-series (such as Mac M1) with Metal GPU
 	ifdef USE_METAL
