@@ -35,7 +35,7 @@ int main() {
     // ===============
     // Load data
     // ===============
-    int n_samples = 100;
+    int n_samples = 1000;
     float action_accuracy = 0.0f;
     for (int sample_idx = 0; sample_idx < n_samples; ++sample_idx) {
         std::string info_path = format_number("embeds/OpenVLA_7B/%04d_info.bin", sample_idx);

@@ -2,13 +2,13 @@
 
 ## CLARIFICATIONS
 
-Before getting any further, please not that this repo was designed for **executing OpenVLA on a Mac**.
+Before getting any further, please note that this repo was designed for **executing OpenVLA on a Mac (ARM)**.
 
 ## Walkthrough
 
 ### Setup
 
-Please start by following the initial installation instructions of TinyChatEngine. Make sure that `nlohmann-json` is properly installed.
+Please start by following the initial installation instructions of TinyChatEngine.
 
 Compile the executable using
 ```shell
@@ -21,6 +21,17 @@ git clone https://github.com/openvla/openvla.git
 cd openvla
 pip install -e .
 ```
+
+### Demo
+
+You can directly download prequantized INT4 weights (with AWQ) [here](https://drive.google.com/file/d/1P_L6UzYWV5IuX1QSr3KVEXcSQ96nPYOL/view?usp=sharing) and copy them in `llm/INT4/models/OpenVLA_7B_fake_awq/`. You can also download the projected vision embeddings [here](https://drive.google.com/file/d/1QzYbbwMJjj-VI4rxx7aH5TJJ9uCGkDNY/view?usp=sharing) and copy them in `llm/embeds/OpenVLA_7B`. Please follow [Pre-computing image embeddings](#precomputing-image-embeddings) if you want to do this manully.
+
+With this, you can try TinyRobotEngine using:
+```shell
+./robot OpenVLA_7B_fake_awq INT4 8 embeds/OpenVLA_7B/0000_projected_patch_embeddings.bin
+```
+
+Feel free to use other embeddings.
 
 ### Converting weights to binaries
 
@@ -38,7 +49,7 @@ python tools/openvla_exporter.py --lm_path models/openvla-7b-pseudo.pt --output 
 ```
 The corresponding weights will be saved in `models/OpenVLA_7B_fake_awq`.
 
-NB: we currently export the weights of the vision backbone but inference isn't fully operational yet (TODO(Clement)).
+NB: we currently export the weights of the vision backbone but inference isn't fully working yet.
 
 ### Quantizing to INT4 (for ARM)
 
@@ -51,7 +62,7 @@ python tools/model_quantizer.py --model_path models/OpenVLA_7B_fake_awq
 ```
 The resulting weights will be stored in `INT4/models/OpenVLA_7B` (resp. `INT4/models/OpenVLA_7B_fake_awq`).
 
-### Pre-computing image embeddings
+### Precomputing image embeddings
 
 We currently do NOT support the vision backbone (although an unsafe/unverified implementation of it exists in this repo). As a consequence, you need to precompute embeddings. We provide a script to do so. Please download an OpenVLA dataset (e.g, [this one](https://drive.google.com/file/d/1SVoF6u_8pmx5sPWcj4bXETbRlflmFlbZ/view?usp=drive_link)) and unzip it into `./datasets`. Then, run
 ```shell
@@ -69,7 +80,7 @@ With this, you can try run inference using with the interactive mode
 ```shell
 ./robot (OpenVLA_7B INT4 NUM_THREADS EMBED_PATH)
 ```
-where `EMBED_PATH` is the path of the embedding you precomputed before.
+where `EMBED_PATH` is the path of the embeddings you precomputed before.
 
 ## Profile inference
 
@@ -81,9 +92,14 @@ make profile_OpenVLAGenerate -j
 ./profile_OpenVLAGenerate
 ```
 
-NB: To do this, please make sure you precomputed **ALL** image embeddings from [our subset of the OpenVLA dataset](https://drive.google.com/file/d/1SVoF6u_8pmx5sPWcj4bXETbRlflmFlbZ/view?usp=drive_link)!
+NB: To do this, please make sure you precomputed **ALL** image embeddings from [our subset of the OpenVLA dataset](https://drive.google.com/file/d/1SVoF6u_8pmx5sPWcj4bXETbRlflmFlbZ/view?usp=drive_link) or downloaded them from [here](https://drive.google.com/file/d/1idtrAgZ99IvgVVKQ4S9QPcWRmMJYRZ0U/view?usp=sharing) and copied them following the instructions in [Demo](#demo).
 
 These scripts will compute the **average (token-wise) accuracy** and the **average time it takes to infer the 7 action tokens** on your machine.
+
+NB: You may want to increase the number of open files that can be open with (for example)
+```shell
+ulimit -n 1000000
+```
 
 ## Findings about generation
 
