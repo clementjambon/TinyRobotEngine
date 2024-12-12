@@ -29,9 +29,33 @@ You can directly download prequantized INT4 weights (with AWQ) [here](https://dr
 With this, you can try TinyRobotEngine using:
 ```shell
 ./robot OpenVLA_7B_fake_awq INT4 8 embeds/OpenVLA_7B/0000_projected_patch_embeddings.bin
+
+# More generally:
+# ./robot OpenVLA_7B_PATH INT4 NUM_THREADS EMBED_PATH
 ```
 
-Feel free to use other embeddings.
+Feel free to use other embeddings, check [Precomputing Image Embeddings](#precomputing-image-embeddings) for that. You can also quantize you own weights as described in [Converting weights to binaries](#converting-weights-to-binaries) and [Quantizing to INT4](#quantizing-to-int4-for-arm).
+
+### Profile inference
+
+You can test and profile (LLM) inference using
+```shell
+make test_OpenVLAGenerate -j
+./test_OpenVLAGenerate
+make profile_OpenVLAGenerate -j
+./profile_OpenVLAGenerate
+```
+
+NB: To do this, please make sure you precomputed **ALL** image embeddings from [our subset of the OpenVLA dataset](https://drive.google.com/file/d/1SVoF6u_8pmx5sPWcj4bXETbRlflmFlbZ/view?usp=drive_link) or downloaded them from [here](https://drive.google.com/file/d/1idtrAgZ99IvgVVKQ4S9QPcWRmMJYRZ0U/view?usp=sharing) and copied them following the instructions in [Demo](#demo).
+
+These scripts will compute the **average (token-wise) accuracy** and the **average time it takes to infer the 7 action tokens** on your machine.
+
+NB: You may want to increase the number of open files that can be open with (for example)
+```shell
+ulimit -n 1000000
+```
+
+## Advanced Walkthrough
 
 ### Converting weights to binaries
 
@@ -81,25 +105,6 @@ With this, you can try run inference using with the interactive mode
 ./robot (OpenVLA_7B INT4 NUM_THREADS EMBED_PATH)
 ```
 where `EMBED_PATH` is the path of the embeddings you precomputed before.
-
-## Profile inference
-
-You can test and profile (LLM) inference using
-```shell
-make test_OpenVLAGenerate -j
-./test_OpenVLAGenerate
-make profile_OpenVLAGenerate -j
-./profile_OpenVLAGenerate
-```
-
-NB: To do this, please make sure you precomputed **ALL** image embeddings from [our subset of the OpenVLA dataset](https://drive.google.com/file/d/1SVoF6u_8pmx5sPWcj4bXETbRlflmFlbZ/view?usp=drive_link) or downloaded them from [here](https://drive.google.com/file/d/1idtrAgZ99IvgVVKQ4S9QPcWRmMJYRZ0U/view?usp=sharing) and copied them following the instructions in [Demo](#demo).
-
-These scripts will compute the **average (token-wise) accuracy** and the **average time it takes to infer the 7 action tokens** on your machine.
-
-NB: You may want to increase the number of open files that can be open with (for example)
-```shell
-ulimit -n 1000000
-```
 
 ## Findings about generation
 
